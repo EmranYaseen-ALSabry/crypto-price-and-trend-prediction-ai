@@ -33,18 +33,29 @@ from crypto_prediction.utils.chart_plotter import AdvancedChartVisualizer
 def run_live_prediction(
     symbol: str = "BTCUSDT",
     horizon: int = 1,
+    interval: str = "1h",
     auto_train_if_missing: bool = True,
     render_charts: bool = True,
 ) -> None:
     """Fetches live market data, identifies technical patterns, and outputs dynamic forecasts."""
     sym = symbol.upper()
+    valid_intervals = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"]
+    if interval not in valid_intervals:
+        print(f"Warning: interval '{interval}' not in standard list {valid_intervals}, attempting anyway.")
+
+    # Determine human-friendly unit
+    is_minute = interval.endswith("m")
+    is_hour = interval.endswith("h")
+    int_val = int(interval[:-1]) if interval[:-1].isdigit() else 1
+    total_time_str = f"{horizon * int_val} Minute(s)" if is_minute else (f"{horizon * int_val} Hour(s)" if is_hour else f"{horizon} Bar(s) of {interval}")
+
     print("=" * 72)
     print(f"  Crypto Price Prediction AI - Dynamic Horizon & Pattern Forecasting")
-    print(f"  Asset: {sym} | Target Horizon: {horizon} Hour(s) Ahead")
+    print(f"  Asset: {sym} | Interval: {interval} | Target Horizon: {horizon} Bar(s) Ahead (~{total_time_str})")
     print("=" * 72)
 
     collector = DataCollector()
-    raw_df = collector.fetch_historical_bars(symbol=sym, interval="1h", total_bars=1000)
+    raw_df = collector.fetch_historical_bars(symbol=sym, interval=interval, total_bars=10000)
 
     cleaner = DataCleaner()
     clean_df = cleaner.clean(raw_df)
@@ -102,7 +113,7 @@ def run_live_prediction(
     models_dir = Path("artifacts/models")
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n[-] Model Forecasts for {horizon}-Hour Horizon:")
+    print(f"\n[-] Model Forecasts for {horizon}-Bar Horizon ({interval}):")
     print("-" * 72)
     print(f"{'Model Name':<18} | {'Return Forecast':<16} | {'Price Target':<14} | {'Direction'}")
     print("-" * 72)
@@ -110,12 +121,26 @@ def run_live_prediction(
     predicted_returns: list[float] = []
 
     for name, model_cls in models_info:
-        model_file = models_dir / f"{sym}_{name}_h{horizon}.joblib"
+        model_file = models_dir / f"{sym}_{interval}_{name}_h{horizon}.joblib"
         model = None
         if model_file.exists():
-            model = model_cls.load(model_file)
-        elif auto_train_if_missing:
-            # Dynamically train on-the-fly for this exact horizon
+            try:
+                candidate = model_cls.load(model_file)
+                # Verify feature compatibility
+                if hasattr(candidate, "feature_names") and candidate.feature_names == list(X.columns):
+                    model = candidate
+                elif not hasattr(candidate, "feature_names"):
+                    # Check scikit-learn pipeline n_features_in_
+                    if hasattr(candidate, "pipeline") and hasattr(candidate.pipeline.named_steps.get("scaler"), "n_features_in_"):
+                        if candidate.pipeline.named_steps["scaler"].n_features_in_ == X.shape[1]:
+                            model = candidate
+                    else:
+                        model = candidate
+            except Exception:
+                model = None
+
+        if model is None and auto_train_if_missing:
+            # Dynamically train on-the-fly for this exact horizon & interval
             if name == "CatBoost":
                 model = CatBoostModel(iterations=100, depth=4, verbose=0)
             elif name == "Ridge":
@@ -160,8 +185,10 @@ def run_live_prediction(
         print("=" * 72)
 
         # 4. Conditional Scenario Trading & Candlestick Confirmation Evaluation
+        is_minute = interval.endswith("m")
+        corridor_window = min(10 if is_minute else 24, len(clean_df) // 2)
         support_s, resist_s = recognizer.compute_dynamic_support_resistance(
-            clean_df["high"], clean_df["low"], clean_df["close"], window=48
+            clean_df["high"], clean_df["low"], clean_df["close"], window=corridor_window
         )
         last_support = float(support_s.dropna().iloc[-1]) if not support_s.dropna().empty else current_price * 0.98
         last_resistance = float(resist_s.dropna().iloc[-1]) if not resist_s.dropna().empty else current_price * 1.02
@@ -174,6 +201,7 @@ def run_live_prediction(
             support=last_support,
             resistance=last_resistance,
             market_regime=market_regime,
+            interval=interval,
         )
 
         badge_map = {
@@ -214,14 +242,15 @@ def run_live_prediction(
         if render_charts:
             figures_dir = Path("artifacts/figures")
             figures_dir.mkdir(parents=True, exist_ok=True)
-            html_path = figures_dir / f"{sym}_forecast_projection_{horizon}h.html"
-            png_path = figures_dir / f"{sym}_forecast_projection_{horizon}h.png"
+            html_path = figures_dir / f"{sym}_{interval}_forecast_projection_{horizon}.html"
+            png_path = figures_dir / f"{sym}_{interval}_forecast_projection_{horizon}.png"
 
             visualizer = AdvancedChartVisualizer()
             visualizer.create_interactive_projection_chart(
                 df=clean_df,
                 symbol=sym,
                 horizon=horizon,
+                interval=interval,
                 predicted_price=avg_price,
                 lower_bound=lower_price,
                 upper_bound=upper_price,
@@ -233,6 +262,7 @@ def run_live_prediction(
                 df=clean_df,
                 symbol=sym,
                 horizon=horizon,
+                interval=interval,
                 predicted_price=avg_price,
                 lower_bound=lower_price,
                 upper_bound=upper_price,
@@ -248,8 +278,14 @@ def run_live_prediction(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Live Crypto Price & Pattern Prediction CLI")
     parser.add_argument("--symbol", type=str, default="BTCUSDT", help="Crypto symbol (BTCUSDT, ETHUSDT, SOLUSDT)")
-    parser.add_argument("--horizon", type=int, default=1, help="Forecast horizon in hours (e.g. 17 for 17h ahead)")
+    parser.add_argument("--interval", type=str, default="1h", help="Timeframe interval (e.g. 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h)")
+    parser.add_argument("--horizon", type=int, default=1, help="Forecast horizon in bars/periods (e.g. 1 for 1 bar ahead)")
     parser.add_argument("--no-charts", action="store_true", help="Disable chart rendering")
     args = parser.parse_args()
 
-    run_live_prediction(symbol=args.symbol, horizon=args.horizon, render_charts=not args.no_charts)
+    run_live_prediction(
+        symbol=args.symbol,
+        horizon=args.horizon,
+        interval=args.interval,
+        render_charts=not args.no_charts,
+    )

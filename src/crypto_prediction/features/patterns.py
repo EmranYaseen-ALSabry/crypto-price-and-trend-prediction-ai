@@ -577,29 +577,53 @@ class PatternRecognizer:
         support: float | None = None,
         resistance: float | None = None,
         market_regime: MarketRegime | None = None,
+        interval: str = "1h",
     ) -> ConfirmationSignal:
         """Evaluates conditional candlestick confirmation signals at dynamic support/resistance corridors.
 
         Args:
             df: OHLCV DataFrame (at least trailing bars).
-            horizon: Forward prediction horizon in hours.
+            horizon: Forward prediction horizon in intervals/bars.
             predicted_price: Model forecasted price at t+horizon.
             current_price: Latest market price at time t.
             support: Trailing support level (computed dynamically if None).
             resistance: Trailing resistance level (computed dynamically if None).
             market_regime: Optional market regime object. If None and df is long enough, inferred automatically.
+            interval: Bar interval string (e.g. '1m', '5m', '15m', '1h', '4h').
 
         Returns:
             ConfirmationSignal with status, entry range, SL, TP, R:R, and trigger candle details.
         """
+        # Calculate recent ATR for volatility-proportional Stop Loss and bounds
+        high_s = df["high"]
+        low_s = df["low"]
+        close_s = df["close"]
+        prev_close_s = close_s.shift(1)
+        tr = pd.concat([high_s - low_s, (high_s - prev_close_s).abs(), (low_s - prev_close_s).abs()], axis=1).max(axis=1)
+        recent_atr = float(tr.rolling(14).mean().iloc[-1]) if len(df) >= 14 else float(current_price * 0.005)
+
+        # Scale Stop Loss buffer according to interval volatility
+        is_minute = interval.endswith("m")
+        # For minutes: use 1.2x to 1.5x ATR; for hours: use 1.5% or 2x ATR
+        atr_buffer = max(recent_atr * 1.2, current_price * (0.002 if is_minute else 0.008))
+
+        # Dynamic corridor window scaled to timeframe
+        corridor_window = min(10 if is_minute else 24, len(df) // 2)
         if support is None or resistance is None:
             supp_s, res_s = self.compute_dynamic_support_resistance(
-                df["high"], df["low"], df["close"], window=min(48, len(df))
+                df["high"], df["low"], df["close"], window=corridor_window
             )
             if support is None:
-                support = float(supp_s.dropna().iloc[-1]) if not supp_s.dropna().empty else current_price * 0.98
+                # Anchor support strictly close to recent price action
+                supp_val = float(supp_s.dropna().iloc[-1]) if not supp_s.dropna().empty else current_price - (1.5 * recent_atr)
+                if is_minute and (current_price - supp_val) > (3 * recent_atr):
+                    supp_val = max(float(low_s.iloc[-corridor_window:].min()), current_price - (2.0 * recent_atr))
+                support = supp_val
             if resistance is None:
-                resistance = float(res_s.dropna().iloc[-1]) if not res_s.dropna().empty else current_price * 1.02
+                res_val = float(res_s.dropna().iloc[-1]) if not res_s.dropna().empty else current_price + (1.5 * recent_atr)
+                if is_minute and (res_val - current_price) > (3 * recent_atr):
+                    res_val = min(float(high_s.iloc[-corridor_window:].max()), current_price + (2.0 * recent_atr))
+                resistance = res_val
 
         # Automatically infer market regime if not supplied and sufficient history exists
         if market_regime is None and len(df) >= 30:
@@ -617,10 +641,10 @@ class PatternRecognizer:
             # buying dips against a macro downtrend is prohibited.
             # The high-probability setup is selling the retest of supply / resistance.
             if predicted_price >= current_price:
-                entry_min = float(min(current_price * 1.008, resistance * 0.992))
+                entry_min = float(min(current_price * 1.002, resistance * 0.998))
                 entry_max = float(resistance * 1.002)
                 entry_range = (entry_min, entry_max)
-                stop_loss = round(float(resistance * 1.008), 2)
+                stop_loss = round(float(resistance + atr_buffer), 2)
                 take_profit = round(float(support), 2)
                 risk = max(1e-6, stop_loss - entry_min)
                 reward = max(0.0, entry_min - take_profit)
@@ -650,10 +674,11 @@ class PatternRecognizer:
             # shorting into a macro bull run is prohibited.
             # The high-probability setup is buying the dip at key support / demand.
             if predicted_price <= current_price:
-                entry_min = float(support * 0.998)
-                entry_max = float(max(current_price * 0.992, support * 1.008))
+                # Local demand entry corridor near support
+                entry_min = float(support)
+                entry_max = float(min(current_price, support + (0.8 * recent_atr)))
                 entry_range = (entry_min, entry_max)
-                stop_loss = round(float(support * 0.992), 2)
+                stop_loss = round(float(support - atr_buffer), 2)
                 take_profit = round(float(resistance), 2)
                 risk = max(1e-6, entry_max - stop_loss)
                 reward = max(0.0, take_profit - entry_max)
@@ -710,15 +735,14 @@ class PatternRecognizer:
 
         # Case 1: Bearish setup (predicted_price < current_price)
         if predicted_price < current_price:
-            # Resistance band: [resistance * 0.995, resistance * 1.015]
-            breakout_threshold = resistance * 1.015
+            breakout_threshold = resistance + (0.5 * recent_atr)
 
             if close_p > breakout_threshold:
                 # Strong bullish breakout above resistance
                 status = "INVALIDATED_BREAKOUT"
                 setup_type = "LONG"
                 entry_range = (float(resistance), float(current_price))
-                stop_loss = round(float(resistance * 0.995), 2)
+                stop_loss = round(float(resistance - (0.8 * recent_atr)), 2)
                 take_profit = round(float(current_price + (current_price - resistance)), 2)
                 risk = max(1e-6, current_price - stop_loss)
                 reward = max(0.0, take_profit - current_price)
@@ -734,7 +758,7 @@ class PatternRecognizer:
                 setup_type = "SHORT"
                 entry_range = (float(current_price), float(resistance))
                 high_ref = max(high_p, resistance)
-                stop_loss = round(float(high_ref + 0.003 * high_ref), 2)
+                stop_loss = round(float(high_ref + atr_buffer), 2)
                 take_profit = round(float(predicted_price), 2)
                 risk = max(1e-6, stop_loss - current_price)
                 reward = max(0.0, current_price - take_profit)
@@ -748,35 +772,34 @@ class PatternRecognizer:
                 inval = stop_loss
                 rationale = (
                     f"Bearish reversal trigger ({trigger_name}) confirmed at resistance band "
-                    f"[${resistance * 0.995:,.2f} - ${resistance * 1.015:,.2f}]; short entry validated toward target."
+                    f"[${resistance - (0.5 * recent_atr):,.2f} - ${resistance + (0.5 * recent_atr):,.2f}]; short entry validated toward target."
                 )
             else:
                 status = "PENDING_CONFIRMATION"
                 setup_type = "WAIT"
                 entry_range = (float(current_price), float(resistance))
-                stop_loss = round(float(resistance * 1.015), 2)
+                stop_loss = round(float(resistance + atr_buffer), 2)
                 take_profit = round(float(predicted_price), 2)
                 risk = max(1e-6, stop_loss - current_price)
                 reward = max(0.0, current_price - take_profit)
                 rr = round(reward / risk, 2)
                 trigger_name = "None (Consolidation/Testing)"
-                inval = round(float(resistance * 1.015), 2)
+                inval = round(float(resistance + atr_buffer), 2)
                 rationale = (
-                    f"Price testing resistance corridor [${resistance * 0.995:,.2f} - ${resistance * 1.015:,.2f}]; "
+                    f"Price testing resistance corridor [${resistance - (0.5 * recent_atr):,.2f} - ${resistance + (0.5 * recent_atr):,.2f}]; "
                     f"wait for reversal candlestick close confirmation before entering short."
                 )
 
         # Case 2: Bullish setup (predicted_price > current_price)
         elif predicted_price > current_price:
-            # Support band: [support * 0.985, support * 1.005]
-            breakdown_threshold = support * 0.985
+            breakdown_threshold = support - (0.5 * recent_atr)
 
             if close_p < breakdown_threshold:
                 # Strong bearish breakdown below support
                 status = "INVALIDATED_BREAKDOWN"
                 setup_type = "SHORT"
                 entry_range = (float(current_price), float(support))
-                stop_loss = round(float(support * 1.005), 2)
+                stop_loss = round(float(support + (0.8 * recent_atr)), 2)
                 take_profit = round(float(current_price - (support - current_price)), 2)
                 risk = max(1e-6, stop_loss - current_price)
                 reward = max(0.0, current_price - take_profit)
@@ -792,7 +815,7 @@ class PatternRecognizer:
                 setup_type = "LONG"
                 entry_range = (float(support), float(current_price))
                 low_ref = min(low_p, support)
-                stop_loss = round(float(low_ref - 0.003 * low_ref), 2)
+                stop_loss = round(float(low_ref - atr_buffer), 2)
                 take_profit = round(float(predicted_price), 2)
                 risk = max(1e-6, current_price - stop_loss)
                 reward = max(0.0, take_profit - current_price)
@@ -806,21 +829,23 @@ class PatternRecognizer:
                 inval = stop_loss
                 rationale = (
                     f"Bullish reversal trigger ({trigger_name}) confirmed at support band "
-                    f"[${support * 0.985:,.2f} - ${support * 1.005:,.2f}]; long dip entry validated."
+                    f"[${support - (0.5 * recent_atr):,.2f} - ${support + (0.5 * recent_atr):,.2f}]; long dip entry validated."
                 )
             else:
                 status = "PENDING_CONFIRMATION"
                 setup_type = "WAIT"
                 entry_range = (float(support), float(current_price))
-                stop_loss = round(float(support * 0.985), 2)
+                # Reasonable trailing stop anchored by ATR below local support or entry
+                stop_sl = max(support - atr_buffer, current_price - (2 * recent_atr))
+                stop_loss = round(float(stop_sl), 2)
                 take_profit = round(float(predicted_price), 2)
                 risk = max(1e-6, current_price - stop_loss)
                 reward = max(0.0, take_profit - current_price)
                 rr = round(reward / risk, 2)
                 trigger_name = "None (Consolidation/Testing)"
-                inval = round(float(support * 0.985), 2)
+                inval = stop_loss
                 rationale = (
-                    f"Price testing support corridor [${support * 0.985:,.2f} - ${support * 1.005:,.2f}]; "
+                    f"Price testing support corridor [${support - (0.5 * recent_atr):,.2f} - ${support + (0.5 * recent_atr):,.2f}]; "
                     f"wait for reversal candlestick close confirmation before entering long."
                 )
 
@@ -829,7 +854,7 @@ class PatternRecognizer:
             status = "NEUTRAL"
             setup_type = "WAIT"
             entry_range = (float(current_price), float(current_price))
-            stop_loss = round(float(current_price * 0.99), 2)
+            stop_loss = round(float(current_price - atr_buffer), 2)
             take_profit = round(float(current_price), 2)
             rr = 1.0
             trigger_name = "None"
@@ -857,6 +882,7 @@ def evaluate_confirmation_signal(
     support: float | None = None,
     resistance: float | None = None,
     market_regime: MarketRegime | None = None,
+    interval: str = "1h",
 ) -> ConfirmationSignal:
     """Module-level helper to evaluate confirmation signal using default PatternRecognizer."""
     return PatternRecognizer().evaluate_confirmation_signal(
@@ -867,6 +893,7 @@ def evaluate_confirmation_signal(
         support=support,
         resistance=resistance,
         market_regime=market_regime,
+        interval=interval,
     )
 
 

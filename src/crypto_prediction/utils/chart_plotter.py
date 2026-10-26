@@ -12,6 +12,21 @@ from plotly.subplots import make_subplots
 from crypto_prediction.features.patterns import ConfirmationSignal, DetectedPattern, MarketRegime, PatternRecognizer
 
 
+def _parse_time_delta(interval: str, horizon: int) -> pd.Timedelta:
+    """Parses interval string (e.g. '1m', '5m', '15m', '1h', '4h', '1d') and scales by horizon."""
+    import re
+    m = re.match(r"^(\d+)([mhd])$", interval.strip().lower())
+    if not m:
+        return pd.Timedelta(hours=horizon)
+    val, unit = int(m.group(1)), m.group(2)
+    deltas = {
+        "m": pd.Timedelta(minutes=val * horizon),
+        "h": pd.Timedelta(hours=val * horizon),
+        "d": pd.Timedelta(days=val * horizon),
+    }
+    return deltas.get(unit, pd.Timedelta(hours=horizon))
+
+
 class AdvancedChartVisualizer:
     """Renders interactive candlestick charts annotated with detected patterns and future price projections."""
 
@@ -23,7 +38,8 @@ class AdvancedChartVisualizer:
         self,
         df: pd.DataFrame,
         symbol: str = "BTCUSDT",
-        horizon: int = 17,
+        horizon: int = 1,
+        interval: str = "1h",
         predicted_price: float | None = None,
         lower_bound: float | None = None,
         upper_bound: float | None = None,
@@ -38,7 +54,8 @@ class AdvancedChartVisualizer:
         Args:
             df: Cleaned OHLCV DataFrame.
             symbol: Cryptocurrency symbol.
-            horizon: Forward prediction horizon in hours.
+            horizon: Forward prediction horizon in intervals/bars.
+            interval: Bar interval (e.g. '1m', '5m', '15m', '1h', '4h').
             predicted_price: Model forecasted price at t+h.
             lower_bound: Lower prediction interval boundary.
             upper_bound: Upper prediction interval boundary.
@@ -51,7 +68,10 @@ class AdvancedChartVisualizer:
         Returns:
             Plotly Figure object.
         """
-        display_df = df.iloc[-recent_bars:].copy()
+        # Dynamic recent bars displayed: 300+ bars as requested for comprehensive technical context
+        is_minute = interval.endswith("m")
+        bars_to_show = max(300, recent_bars)
+        display_df = df.iloc[-bars_to_show:].copy()
         if not isinstance(display_df.index, pd.DatetimeIndex):
             if "open_time" in display_df.columns:
                 display_df["open_time"] = pd.to_datetime(display_df["open_time"], utc=True)
@@ -60,7 +80,7 @@ class AdvancedChartVisualizer:
                 try:
                     display_df.index = pd.to_datetime(display_df.index, utc=True)
                 except Exception:
-                    display_df.index = pd.date_range(end=pd.Timestamp.now(tz="UTC"), periods=len(display_df), freq="1h")
+                    display_df.index = pd.date_range(end=pd.Timestamp.now(tz="UTC"), periods=len(display_df), freq=interval)
 
         # 1. Base Subplots (Candlesticks on row 1, Volume on row 2)
         fig = make_subplots(
@@ -174,9 +194,14 @@ class AdvancedChartVisualizer:
             pat_badges = " | ".join([f"[{p.signal.upper()}] {p.name}" for p in detected[:3]])
             pat_suffix = f"<br><span style='font-size:10px;font-weight:normal;opacity:0.95;'>Active Patterns: {pat_badges}</span>"
 
+        # Correctly format horizon display string
+        int_val = int(interval[:-1]) if interval[:-1].isdigit() else 1
+        time_unit_str = f"{horizon * int_val}m" if interval.endswith("m") else (f"{horizon * int_val}h" if interval.endswith("h") else f"{horizon} bars")
+        header_title = f"{symbol} ({time_unit_str}) | [REGIME: {market_regime.regime}]"
+
         regime_col = "#00e676" if "BULLISH" in market_regime.regime else ("#ff1744" if "BEARISH" in market_regime.regime else "#ffab00")
         fig.add_annotation(
-            text=f"<b>{symbol} ({horizon}h) | [REGIME: {market_regime.regime}]</b> | ADX: {market_regime.adx} ({market_regime.adx_level}) | Structure: {market_regime.structure} | Bias: {market_regime.trend_bias}{pat_suffix}",
+            text=f"<b>{header_title}</b> | ADX: {market_regime.adx} ({market_regime.adx_level}) | Structure: {market_regime.structure} | Bias: {market_regime.trend_bias}{pat_suffix}",
             xref="paper",
             yref="paper",
             x=0.5,
@@ -204,8 +229,9 @@ class AdvancedChartVisualizer:
         )
 
         # 6. Support and Resistance Levels
+        corridor_window = min(10 if is_minute else 24, len(display_df) // 2)
         support, resistance = self.recognizer.compute_dynamic_support_resistance(
-            display_df["high"], display_df["low"], display_df["close"], window=min(48, len(display_df) // 2)
+            display_df["high"], display_df["low"], display_df["close"], window=corridor_window
         )
         last_support = float(support.dropna().iloc[-1]) if not support.dropna().empty else float(display_df["low"].min())
         last_resistance = float(resistance.dropna().iloc[-1]) if not resistance.dropna().empty else float(display_df["high"].max())
@@ -221,6 +247,7 @@ class AdvancedChartVisualizer:
                 support=last_support,
                 resistance=last_resistance,
                 market_regime=market_regime,
+                interval=interval,
             )
 
         # Draw shaded translucent rectangles for Supply & Demand zones (Clean zones without text clutter)
@@ -259,6 +286,7 @@ class AdvancedChartVisualizer:
             annotation_text=f"Resistance: ${last_resistance:,.1f}",
             annotation_position="top right",
             annotation_font=dict(size=10, color="#ef5350"),
+            annotation_yshift=6,
             row=1,
             col=1,
         )
@@ -273,6 +301,7 @@ class AdvancedChartVisualizer:
                 annotation_text=f"Support: ${last_support:,.1f}",
                 annotation_position="bottom right",
                 annotation_font=dict(size=10, color="#00e676"),
+                annotation_yshift=-6,
                 row=1,
                 col=1,
             )
@@ -280,7 +309,8 @@ class AdvancedChartVisualizer:
         # 6. Future Price Forecast Trajectory and Uncertainty Cone
         if predicted_price is not None:
             last_time = display_df.index[-1]
-            target_time = last_time + pd.Timedelta(hours=horizon)
+            delta_forward = _parse_time_delta(interval, horizon)
+            target_time = last_time + delta_forward
 
             # Trajectory Line
             traj_x = [last_time, target_time]
@@ -292,7 +322,7 @@ class AdvancedChartVisualizer:
                     x=traj_x,
                     y=traj_y,
                     mode="lines+markers",
-                    name=f"Forecast ({horizon}h): ${predicted_price:,.2f}",
+                    name=f"Forecast ({horizon}x{interval}): ${predicted_price:,.2f}",
                     line=dict(color=dir_color, width=2.5, dash="dash"),
                     marker=dict(size=7, color=dir_color),
                 ),
@@ -310,8 +340,8 @@ class AdvancedChartVisualizer:
                         x=cone_x,
                         y=cone_y,
                         fill="toself",
-                        fillcolor="rgba(33, 150, 243, 0.18)",
-                        line=dict(color="rgba(33, 150, 243, 0.4)", width=1, dash="dot"),
+                        fillcolor="rgba(33, 150, 243, 0.22)",
+                        line=dict(color="rgba(33, 150, 243, 0.6)", width=1.5, dash="dot"),
                         name="Uncertainty Corridor (±1.96σ)",
                         hoverinfo="skip",
                     ),
@@ -334,6 +364,7 @@ class AdvancedChartVisualizer:
                     annotation_text=tp_label,
                     annotation_position="bottom right",
                     annotation_font=dict(size=10, color="#00e5ff"),
+                    annotation_yshift=-8,
                     row=1,
                     col=1,
                 )
@@ -347,13 +378,15 @@ class AdvancedChartVisualizer:
                     annotation_text=f"Stop Loss: ${sl_price:,.1f}",
                     annotation_position="top right",
                     annotation_font=dict(size=10, color="#ff9100"),
+                    annotation_yshift=8,
                     row=1,
                     col=1,
                 )
 
                 # Directional Arrow aligned with Setup Type
                 if confirmation_signal.setup_type == "SHORT":
-                    entry_start_y = max(confirmation_signal.entry_range)
+                    # An arrow pointing from current price/entry toward target
+                    entry_start_y = last_price
                     fig.add_annotation(
                         x=target_time,
                         y=tp_price,
@@ -376,7 +409,8 @@ class AdvancedChartVisualizer:
                         col=1,
                     )
                 elif confirmation_signal.setup_type == "LONG":
-                    entry_start_y = min(confirmation_signal.entry_range)
+                    # For long setup, originate arrow from current price toward the target profit level
+                    entry_start_y = last_price
                     fig.add_annotation(
                         x=target_time,
                         y=tp_price,
@@ -399,6 +433,7 @@ class AdvancedChartVisualizer:
                         col=1,
                     )
                 else:
+                    # Tactical WAIT retest: position above prediction and right-aligned to prevent overlapping TP/candles
                     fig.add_annotation(
                         x=target_time,
                         y=predicted_price,
@@ -415,18 +450,20 @@ class AdvancedChartVisualizer:
                         arrowwidth=1.5,
                         arrowcolor="#ffb300",
                         font=dict(color="#ffffff", size=9),
-                        bgcolor="rgba(15, 23, 42, 0.85)",
+                        bgcolor="rgba(15, 23, 42, 0.88)",
                         bordercolor="#ffb300",
+                        yshift=18,
+                        xshift=10,
                         row=1,
                         col=1,
                     )
 
-        # 7. Layout and Styling with dedicated top clearance (t=85) and wide right margin (r=120)
+        # 7. Layout and Styling with dedicated top clearance (t=85) and wide right margin (r=140)
         fig.update_layout(
             template=self.theme,
             xaxis_rangeslider_visible=False,
             height=720,
-            margin=dict(l=50, r=120, t=85, b=40),
+            margin=dict(l=50, r=140, t=85, b=40),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
@@ -448,7 +485,8 @@ class AdvancedChartVisualizer:
         self,
         df: pd.DataFrame,
         symbol: str = "BTCUSDT",
-        horizon: int = 17,
+        horizon: int = 1,
+        interval: str = "1h",
         predicted_price: float | None = None,
         lower_bound: float | None = None,
         upper_bound: float | None = None,
@@ -456,7 +494,9 @@ class AdvancedChartVisualizer:
         confirmation_signal: ConfirmationSignal | None = None,
     ) -> plt.Figure:
         """Renders publication-grade static Matplotlib candlestick chart with forecast cone."""
-        display_df = df.iloc[-90:].copy()
+        is_minute = interval.endswith("m")
+        bars_to_show = min(300, len(df))
+        display_df = df.iloc[-bars_to_show:].copy()
         if not isinstance(display_df.index, pd.DatetimeIndex):
             if "open_time" in display_df.columns:
                 display_df["open_time"] = pd.to_datetime(display_df["open_time"], utc=True)
@@ -465,7 +505,7 @@ class AdvancedChartVisualizer:
                 try:
                     display_df.index = pd.to_datetime(display_df.index, utc=True)
                 except Exception:
-                    display_df.index = pd.date_range(end=pd.Timestamp.now(tz="UTC"), periods=len(display_df), freq="1h")
+                    display_df.index = pd.date_range(end=pd.Timestamp.now(tz="UTC"), periods=len(display_df), freq=interval)
 
         fig, (ax1, ax2) = plt.subplots(
             nrows=2,
@@ -498,9 +538,11 @@ class AdvancedChartVisualizer:
         # Market Regime Badge
         market_regime = self.recognizer.detect_market_regime(df)
         regime_fc = "#27ae60" if "BULLISH" in market_regime.regime else ("#c0392b" if "BEARISH" in market_regime.regime else "#d35400")
+        int_val = int(interval[:-1]) if interval[:-1].isdigit() else 1
+        time_unit_str = f"{horizon * int_val}m" if interval.endswith("m") else (f"{horizon * int_val}h" if interval.endswith("h") else f"{horizon} bars")
         ax1.text(
             0.02, 0.95,
-            f"REGIME: {market_regime.regime} | ADX: {market_regime.adx:.1f} ({market_regime.adx_level})\nStructure: {market_regime.structure} | Bias: {market_regime.trend_bias}",
+            f"{symbol} ({time_unit_str}) | REGIME: {market_regime.regime} | ADX: {market_regime.adx:.1f} ({market_regime.adx_level})\nStructure: {market_regime.structure} | Bias: {market_regime.trend_bias}",
             transform=ax1.transAxes,
             fontsize=9,
             fontweight="bold",
@@ -510,8 +552,9 @@ class AdvancedChartVisualizer:
         )
 
         # Support & Resistance
+        corridor_window = min(10 if is_minute else 24, len(display_df) // 2)
         support, resistance = self.recognizer.compute_dynamic_support_resistance(
-            display_df["high"], display_df["low"], display_df["close"], window=48
+            display_df["high"], display_df["low"], display_df["close"], window=corridor_window
         )
         last_supp = float(support.dropna().iloc[-1]) if not support.dropna().empty else float(display_df["low"].min())
         last_res = float(resistance.dropna().iloc[-1]) if not resistance.dropna().empty else float(display_df["high"].max())
@@ -527,6 +570,7 @@ class AdvancedChartVisualizer:
                 support=last_supp,
                 resistance=last_res,
                 market_regime=market_regime,
+                interval=interval,
             )
 
         # Shaded translucent rectangles for Supply & Demand zones
@@ -546,10 +590,11 @@ class AdvancedChartVisualizer:
         # Forecast Trajectory & Uncertainty Cone
         if predicted_price is not None:
             last_time = display_df.index[-1]
-            target_time = last_time + pd.Timedelta(hours=horizon)
+            delta_forward = _parse_time_delta(interval, horizon)
+            target_time = last_time + delta_forward
             color = "#27ae60" if predicted_price >= last_price else "#e74c3c"
 
-            ax1.plot([last_time, target_time], [last_price, predicted_price], color=color, ls="--", lw=2.2, marker="o", label=f"Forecast ({horizon}h)")
+            ax1.plot([last_time, target_time], [last_price, predicted_price], color=color, ls="--", lw=2.2, marker="o", label=f"Forecast ({horizon}x{interval})")
 
             if lower_bound is not None and upper_bound is not None:
                 ax1.fill(
@@ -583,7 +628,7 @@ class AdvancedChartVisualizer:
 
                 # Directional Tactical Arrow aligned with setup type
                 arrow_col = "#e74c3c" if confirmation_signal.setup_type == "SHORT" else "#27ae60"
-                start_y = max(confirmation_signal.entry_range) if confirmation_signal.setup_type == "SHORT" else min(confirmation_signal.entry_range)
+                start_y = last_price
                 ax1.annotate(
                     f"Setup [{confirmation_signal.setup_type}]\nTP: ${tp_price:,.0f}",
                     xy=(target_time, tp_price),
@@ -595,7 +640,7 @@ class AdvancedChartVisualizer:
                     fontweight="bold",
                 )
 
-        ax1.set_title(f"{symbol} Price Action & {horizon}-Hour Target Projection", fontsize=14, fontweight="bold")
+        ax1.set_title(f"{symbol} Price Action & {time_unit_str} Target Projection", fontsize=14, fontweight="bold")
         ax1.set_ylabel("Price (USDT)")
         ax1.legend(loc="upper left")
         ax1.grid(True, linestyle="--", alpha=0.4)

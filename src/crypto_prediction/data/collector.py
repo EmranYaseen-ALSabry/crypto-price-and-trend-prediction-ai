@@ -16,7 +16,13 @@ logger = get_logger("data_collector")
 class DataCollector:
     """Collects OHLCV market data via REST API or local CSVs, with deterministic synthetic fallback."""
 
-    BINANCE_KLINES_URL = "https://api.binance.com/api/v3/klines"
+    BINANCE_KLINES_URLS = [
+        "https://api.binance.com/api/v3/klines",
+        "https://data-api.binance.vision/api/v3/klines",
+        "https://api1.binance.com/api/v3/klines",
+        "https://api2.binance.com/api/v3/klines",
+        "https://api3.binance.com/api/v3/klines",
+    ]
 
     def __init__(
         self,
@@ -65,7 +71,7 @@ class DataCollector:
         start_time_ms: int | None = None,
         end_time_ms: int | None = None,
     ) -> pd.DataFrame:
-        """Fetches OHLCV kline data from Binance public REST endpoint."""
+        """Fetches OHLCV kline data from Binance public REST endpoints with automatic failover."""
         params: dict[str, str | int] = {
             "symbol": symbol.upper(),
             "interval": interval,
@@ -77,10 +83,11 @@ class DataCollector:
             params["endTime"] = end_time_ms
 
         for attempt in range(1, self.max_retries + 1):
+            url = self.BINANCE_KLINES_URLS[(attempt - 1) % len(self.BINANCE_KLINES_URLS)]
             try:
                 time.sleep(self.rate_limit_delay)
                 response = requests.get(
-                    self.BINANCE_KLINES_URL,
+                    url,
                     params=params,
                     timeout=self.request_timeout,
                     headers={"User-Agent": "CryptoPredictionAI/1.0"},
@@ -88,7 +95,7 @@ class DataCollector:
                 if response.status_code == 200:
                     raw_data = response.json()
                     if not raw_data:
-                        logger.warning(f"Empty response returned for {symbol} ({interval}).")
+                        logger.warning(f"Empty response returned for {symbol} ({interval}) from {url}.")
                         return pd.DataFrame()
 
                     # Binance kline payload structure:
@@ -110,9 +117,10 @@ class DataCollector:
                     return df
                 else:
                     logger.warning(
-                        f"Attempt {attempt}/{self.max_retries}: Binance API returned HTTP {response.status_code}."
+                        f"Attempt {attempt}/{self.max_retries}: {url} returned HTTP {response.status_code}."
                     )
             except Exception as exc:
+                logger.warning(f"Attempt {attempt}/{self.max_retries} with {url} failed with error: {exc}")
                 logger.warning(f"Attempt {attempt}/{self.max_retries} failed with error: {exc}")
 
         raise ConnectionError(f"Failed to fetch market data from Binance API after {self.max_retries} attempts.")
