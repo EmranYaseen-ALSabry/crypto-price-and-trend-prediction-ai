@@ -6,6 +6,10 @@
 [![Leakage Audit](https://img.shields.io/badge/Data%20Leakage%20Audit-Zero%20Lookahead%20Verified-success.svg)](reports/data_leakage_audit_report.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<p align="center">
+  <img src="docs/assets/crypto_charts_showcase.gif" alt="Crypto Price & Trend Prediction Visualizations" width="900" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />
+</p>
+
 ---
 
 ## 🌟 نظرة عامة على المشروع (Project Overview)
