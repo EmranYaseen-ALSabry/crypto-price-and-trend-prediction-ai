@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>دليل التوثيق والتشغيل الشامل - Crypto Price Prediction AI</title>
+<style>
+    @page {
+        size: A4;
+        margin: 15mm 12mm 15mm 12mm;
+    }
+    @media print {
+        body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .no-break {
+            page-break-inside: avoid;
+        }
+    }
+    * {
+        box-sizing: border-box;
+    }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, Arial;
+        direction: rtl;
+        text-align: right;
+        color: #1e293b;
+        background-color: #ffffff;
+        line-height: 1.65;
+        font-size: 13.5px;
+        margin: 0;
+        padding: 0;
+    }
+    h1, h2, h3, h4, h5 {
+        color: #0f172a;
+        font-weight: 700;
+        margin-top: 18px;
+        margin-bottom: 10px;
+    }
+    h1 {
+        font-size: 24px;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 8px;
+        color: #1e3a8a;
+    }
+    h2 {
+        font-size: 18px;
+        border-right: 4px solid #2563eb;
+        padding-right: 10px;
+        margin-top: 24px;
+        color: #0f172a;
+    }
+    h3 {
+        font-size: 15px;
+        color: #1e40af;
+        margin-top: 16px;
+    }
+    p {
+        margin-top: 6px;
+        margin-bottom: 10px;
+        text-align: justify;
+    }
+    /* Cover Page */
+    .cover-container {
+        padding: 40px 25px;
+        text-align: center;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
+        margin-bottom: 20px;
+    }
+    .cover-title {
+        font-size: 28px;
+        color: #1e3a8a;
+        margin-bottom: 8px;
+        font-weight: 800;
+    }
+    .cover-subtitle {
+        font-size: 16px;
+        color: #3b82f6;
+        margin-bottom: 25px;
+        font-weight: 600;
+    }
+    .badge-bar {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+    }
+    .badge {
+        display: inline-block;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: bold;
+        color: #ffffff;
+    }
+    .badge-blue { background-color: #2563eb; }
+    .badge-green { background-color: #16a34a; }
+    .badge-purple { background-color: #7c3aed; }
+    .badge-dark { background-color: #0f172a; }
+
+    /* Table of Contents */
+    .toc-card {
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 18px 24px;
+        margin-bottom: 25px;
+    }
+    .toc-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 20px;
+        margin-top: 10px;
+    }
+    .toc-item {
+        font-size: 13px;
+        padding: 4px 0;
+        border-bottom: 1px dashed #e2e8f0;
+    }
+    .toc-num {
+        font-weight: bold;
+        color: #2563eb;
+        margin-left: 6px;
+    }
+
+    /* Tables */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0 16px 0;
+        font-size: 12px;
+    }
+    th, td {
+        border: 1px solid #cbd5e1;
+        padding: 8px 10px;
+        text-align: right;
+    }
+    th {
+        background-color: #f1f5f9;
+        color: #0f172a;
+        font-weight: bold;
+    }
+    tr:nth-child(even) {
+        background-color: #f8fafc;
+    }
+
+    /* Code Blocks */
+    pre, code {
+        font-family: 'Consolas', 'Courier New', monospace;
+        direction: ltr;
+        text-align: left;
+    }
+    pre {
+        background-color: #0f172a;
+        color: #f8fafc;
+        padding: 12px 14px;
+        border-radius: 6px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        overflow-x: auto;
+        margin: 10px 0 14px 0;
+        border-right: 4px solid #38bdf8;
+    }
+    code.inline {
+        background-color: #f1f5f9;
+        color: #0f172a;
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-size: 11.5px;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* Callout Boxes */
+    .callout {
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin: 12px 0;
+        font-size: 12.5px;
+    }
+    .callout-info {
+        background-color: #eff6ff;
+        border-right: 4px solid #3b82f6;
+        color: #1e40af;
+    }
+    .callout-success {
+        background-color: #f0fdf4;
+        border-right: 4px solid #22c55e;
+        color: #166534;
+    }
+    .callout-warning {
+        background-color: #fffbeb;
+        border-right: 4px solid #f59e0b;
+        color: #92400e;
+    }
+    .callout-danger {
+        background-color: #fef2f2;
+        border-right: 4px solid #ef4444;
+        color: #991b1b;
+    }
+    .callout strong {
+        display: block;
+        margin-bottom: 3px;
+        font-size: 13px;
+    }
+
+    /* Flow step */
+    .step-box {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 10px 14px;
+        margin-bottom: 10px;
+    }
+    .step-header {
+        font-weight: bold;
+        color: #1e3a8a;
+        margin-bottom: 4px;
+    }
+</style>
+</head>
+<body>
+
+<!-- ========================================================================= -->
+<!-- 1. صفحة الغلاف (Cover Page) -->
+<!-- ========================================================================= -->
+<div class="cover-container">
+    <div style="font-size: 40px; margin-bottom: 10px;">🚀 📊 🤖</div>
+    <div class="cover-title">Crypto Price Prediction AI</div>
+    <div class="cover-subtitle">الدليل الشامل والمفهرس لتشغيل، وإعادة ضبط وتطوير النظام الهندسي للتنبؤ بالأسعار والاتجاهات</div>
+    
+    <div class="badge-bar">
+        <span class="badge badge-blue">Python 3.10 - 3.14</span>
+        <span class="badge badge-green">pytest 55/55 Passed (100%)</span>
+        <span class="badge badge-purple">Zero Data Leakage Audited</span>
+        <span class="badge badge-dark">Dual Mode: Live API + Offline</span>
+    </div>
+
+    <p style="text-align: center; max-width: 650px; margin: 0 auto; color: #475569; font-size: 13px;">
+        نظام إنتاجي متكامل للتنبؤ المالي بالسلاسل الزمنية، استخراج الخصائص السببية، التعرف على هياكل ونماذج السوق،
+        وتنفيذ الصفقات المشروطة وفق إدارة المخاطر وتأكيد الشموع اليابانية.
+    </p>
+
+    <div style="margin-top: 30px; font-size: 12px; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 15px;">
+        <span>تاريخ التوثيق: أكتوبر 2026</span> | 
+        <span>الإصدار: Version 1.0.0 Production</span> | 
+        <span>الترخيص: MIT Open Source</span>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- 2. الفهرس العام (Table of Contents) -->
+<!-- ========================================================================= -->
+<div class="toc-card no-break">
+    <h2 style="margin-top: 0; border-right: none; padding-right: 0; text-align: center; color: #1e3a8a;">📑 الفهرس العام للمستند</h2>
+    <div class="toc-grid">
+        <div class="toc-item"><span class="toc-num">01.</span> نظرة عامة ورسالة المشروع (Overview)</div>
+        <div class="toc-item"><span class="toc-num">02.</span> الهيكلية المعمارية وتدفق البيانات (Architecture)</div>
+        <div class="toc-item"><span class="toc-num">03.</span> ضمان منع تسريب البيانات رياضياً (Zero-Leakage)</div>
+        <div class="toc-item"><span class="toc-num">04.</span> نماذج التعلم الآلي والخطوط المرجعية (Models)</div>
+        <div class="toc-item"><span class="toc-num">05.</span> محرك التنبؤ بأي أفق زمني مخصص (Dynamic Horizon)</div>
+        <div class="toc-item"><span class="toc-num">06.</span> محرك كشف اتجاه وهيكلية السوق (Market Regime)</div>
+        <div class="toc-item"><span class="toc-num">07.</span> نظام التداول المشروط وفلتر حماية رأس المال</div>
+        <div class="toc-item"><span class="toc-num">08.</span> المخططات البيانية التفاعلية والمطبوعة (Charts)</div>
+        <div class="toc-item"><span class="toc-num">09.</span> <strong>دليل إعادة ضبط إعدادات المشروع بالكامل (Config)</strong></div>
+        <div class="toc-item"><span class="toc-num">10.</span> <strong>دليل التنفيذ والتشغيل خطوة بخطوة (Execution)</strong></div>
+        <div class="toc-item"><span class="toc-num">11.</span> استكشاف الأخطاء الشائعة وحلها (Troubleshooting)</div>
+        <div class="toc-item"><span class="toc-num">12.</span> إخلاء المسؤولية الصريح والختام (Disclaimer)</div>
+    </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- ========================================================================= -->
+<!-- القسم 1: نظرة عامة ورسالة المشروع -->
+<!-- ========================================================================= -->
+<h1>1. نظرة عامة ورسالة المشروع (Project Overview)</h1>
+<p>
+    مشروع <strong>Crypto Price Prediction AI</strong> هو نظام هندسي ومالي متطور مصمم خصيصاً للتنبؤ بأسعار وعوائد الأصول الرقمية الكبرى (Bitcoin, Ethereum, Solana) بدون الوقوع في الأخطاء الشائعة التي تعاني منها معظم مشاريع التنبؤ بالذكاء الاصطناعي في الأسواق المالية.
+</p>
+
+<h3>لماذا تم بناء هذا المشروع؟</h3>
+<ul>
+    <li><strong>القضاء التام على تسريب البيانات المستقبلي (Zero Data Leakage):</strong> معظم النماذج الأكاديمية تسرب المستقبل عن غير قصد باستخدام مؤشرات مركزية أو تطبيع بيانات يشمل بيانات الاختبار، مما يعطي دقة زائفة تنهار في السوق الحقيقي.</li>
+    <li><strong>المقارنة بالخطوط المرجعية الحقيقية (Realistic Financial Baselines):</strong> قياس أداء النماذج ليس فقط بالنسبة للأخطاء التقليدية، بل مقارنة بالخط المرجعي الصفري (Zero Return) وتوقع السعر السابق (Last Value).</li>
+    <li><strong>المرونة الزمنية المطلقة (Dynamic Horizon):</strong> القدرة على التنبؤ بأي عدد ساعات يحدده المستخدم (مثل كم سيكون السعر بعد 17 ساعة، أو 24 ساعة، أو 3 ساعات) وتكييف النماذج وفترات التطهير تلقائياً.</li>
+    <li><strong>الدمج بين التحليل الفني والتعلم الآلي (Quant + Price Action):</strong> رصد أنماط الشموع اليابانية (Hammers, Shooting Stars, Engulfing)، واصطفاف المتوسطات ($EMA_{20}, EMA_{50}, EMA_{200}$)، ومؤشر $ADX$ وهيكلية القمم والقيعان ($HH/HL, LH/LL$).</li>
+</ul>
+
+<!-- ========================================================================= -->
+<!-- القسم 2: الهيكلية المعمارية وتدفق البيانات -->
+<!-- ========================================================================= -->
+<h1>2. الهيكلية المعمارية وتدفق البيانات (System Architecture)</h1>
+<p>
+    يعتمد النظام على هيكل معياري (Modular Pipeline) يفصل بدقة بين تجميع البيانات، فحص سلامتها، استخراج الخصائص السببية، التقسيم الزمني، والتدريب:
+</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>المسار / الموديول</th>
+            <th>الوظيفة والمسؤولية</th>
+            <th>الضمانات البرمجية</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>src/crypto_prediction/data/collector.py</code></td>
+            <td>جلب البيانات الحية من Binance Public REST API أو التبديل التلقائي للوضع غير المتصل (Offline).</td>
+            <td>عزل الشمعة غير المغلقة لمنع تشوه الإشارات اللحظية.</td>
+        </tr>
+        <tr>
+            <td><code>src/crypto_prediction/data/validator.py</code></td>
+            <td>فحص ثوابت الشموع (High &ge; Low, High &ge; Close, Low &le; Open).</td>
+            <td>رفض البيانات الملوثة أو التي تحتوي قفزات غير منطقية.</td>
+        </tr>
+        <tr>
+            <td><code>src/crypto_prediction/features/engineer.py</code></td>
+            <td>توليد 50 خاصية فنية متقدمة (RSI, MACD, Bollinger, ATR, Volatility).</td>
+            <td>تطبيق سببي حصري مع <code>center=False</code> لمنع أي تسريب.</td>
+        </tr>
+        <tr>
+            <td><code>src/crypto_prediction/features/patterns.py</code></td>
+            <td>محرك رصد الشموع وهيكلية السوق واصطفاف الـ EMA وتقييم صفقات التأكيد.</td>
+            <td>حسابات متطورة لـ Wilder's ADX وتحديد القمم والقيعان المتأرجحة.</td>
+        </tr>
+        <tr>
+            <td><code>src/crypto_prediction/validation/splitter.py</code></td>
+            <td>التقسيم الزمني (Chronological Split) مع فترة التطهير (Purging Gap).</td>
+            <td>فصل Train عن Test بفترة &ge; أفق التنبؤ لمنع التداخل.</td>
+        </tr>
+        <tr>
+            <td><code>src/crypto_prediction/utils/chart_plotter.py</code></td>
+            <td>توليد مخططات الشموع التفاعلية فائقة الدقة (Plotly HTML) والمطبوعة (Matplotlib PNG).</td>
+            <td>رسم مخروط عدم اليقين (95%)، شريط الاتجاه، ومسارات الصفقات.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ========================================================================= -->
+<!-- القسم 3: ضمان منع تسريب البيانات رياضياً -->
+<!-- ========================================================================= -->
+<h1>3. ضمان منع تسريب البيانات رياضياً (Zero-Leakage Guarantee)</h1>
+<div class="callout callout-warning">
+    <strong>⚠️ مبدأ الصرامة السببية (Causality First):</strong>
+    في الأسواق المالية، استخدام معلومة واحدة من المستقبل في تدريب النموذج يجعل كامل النظام عديم القيمة في التداول الحي. لذلك يحتوي النظام على حزمة تدقيق صارمة تتضمن:
+</div>
+
+<ol>
+    <li><strong>نوافذ التدحرج غير المتمركزة حصراً:</strong> جميع المؤشرات الفنية والإحصائية تستخدم <code>center=False</code>، مما يضمن أن قيمة المؤشر عند الشمعة $t$ تعتمد فقط على الفترات $t, t-1, \dots, t-k$.</li>
+    <li><strong>فترة التطهير الإلزامية (Purging Gap):</strong> عند تدريب نموذج للتنبؤ بعائد $h$ ساعة للأمام، تكون شمعة الهدف مرتبطة بأسعار حتى $t+h$. لذلك، يتم حجب فاصل زمني مقداره $h$ ساعة بين نهاية مجموعة التدريب وبداية مجموعة الاختبار لمنع تداخل عوائد النوافذ.</li>
+    <li><strong>عزل التطبيع والقياس (StandardScaler Isolation):</strong> يتم ملاءمة (Fitting) دوال التحجيم والتقييس على مجموعة التدريب فقط، ثم استخدامها للتحويل (Transform) فقط على بيانات التحقق والاختبار.</li>
+    <li><strong>اختبار التشويش المستقبلي الآلي (Perturbation Audit Test):</strong> اختبار وحدة برمجي آلي داخل <code>test_temporal_leakage.py</code> يقوم بمضاعفة أسعار المستقبل عشوائياً والتحقق رياضياً من أن الخصائص الماضية لم تتغير ولو بنسبة $0.00000001\%$.</li>
+</ol>
+
+<!-- ========================================================================= -->
+<!-- القسم 4: نماذج التعلم الآلي والخطوط المرجعية -->
+<!-- ========================================================================= -->
+<h1>4. نماذج التنبؤ والخطوط المرجعية (Forecasting Models)</h1>
+<p>
+    يدعم النظام مزيجاً متوازناً من النماذج الإحصائية والخوارزمية وشبكات التعلم العميق:
+</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>فئة النموذج</th>
+            <th>النماذج المطبقة</th>
+            <th>الهدف والميزة في النظام</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>الخطوط المرجعية (Baselines)</strong></td>
+            <td>ZeroReturnBaseline, LastValueBaseline</td>
+            <td>المعيار الأساسي: إذا لم يتفوق النموذج على الخط الصفري فهو نموذج غير مجدٍ مالياً.</td>
+        </tr>
+        <tr>
+            <td><strong>النماذج الخطية المنظمة</strong></td>
+            <td>LinearRegression, Ridge ($L_2$ Regularization)</td>
+            <td>حماية من الإفراط في الملاءمة واستخراج ميزة اتجاهية مستقرة (Directional Edge).</td>
+        </tr>
+        <tr>
+            <td><strong>مجموعات الأشجار (Ensembles)</strong></td>
+            <td>RandomForest, HistGradientBoosting</td>
+            <td>التعامل مع العلاقات غير الخطية بين مؤشرات الزخم والتقلب وأحجام التداول.</td>
+        </tr>
+        <tr>
+            <td><strong>عمالقة التعزيز التدرجي</strong></td>
+            <td>CatBoost, LightGBM, XGBoost</td>
+            <td>النماذج الأقوى أداءً في دقة التنبؤ خارج العينة (Out-of-Sample Evaluation).</td>
+        </tr>
+        <tr>
+            <td><strong>الشبكات العصبية العميقة</strong></td>
+            <td>LSTM Sequence Model (PyTorch)</td>
+            <td>نمذجة التبعيات الزمنية طويلة المدى على تسلسلات النوافذ المتتالية.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ========================================================================= -->
+<!-- القسم 5: محرك الآفاق الزمنية المرنة -->
+<!-- ========================================================================= -->
+<h1>5. محرك التنبؤ بأي أفق زمني مخصص (Dynamic Horizon Engine)</h1>
+<p>
+    يتيح النظام للمستخدم طلب التنبؤ بأي أفق مستقبلي يختاره بصورة ديناميكية دون الحاجة لتعديل الكود المصدري:
+</p>
+<div class="step-box">
+    <div class="step-header">🔹 كيف يعمل المحرك التلقائي للأفق الزمني؟</div>
+    <ol style="margin: 4px 0 0 0; padding-right: 20px;">
+        <li>يقوم المستخدم بتمرير المعامل <code>--horizon N</code> (مثلاً 17 ساعة، أو 24 ساعة، أو 8 ساعات).</li>
+        <li>ينشئ المحرك هدف العائد المستقبلي: <code>target_return_h = (close[t+h] - close[t]) / close[t]</code>.</li>
+        <li>يضبط المحرك فجوة التطهير (Purging Gap) لتساوي $h$ ساعة تماماً، لمنع أي تداخل بين النوافذ الزمنية.</li>
+        <li>يحسب مخروط عدم اليقين الإحصائي المدار تقلبياً: $\text{Uncertainty Cone} = \pm 1.96 \times (\sigma_{\text{hourly}} \times \sqrt{h})$.</li>
+    </ol>
+</div>
+
+<!-- ========================================================================= -->
+<!-- القسم 6: محرك اتجاه وهيكلية السوق -->
+<!-- ========================================================================= -->
+<h1>6. محرك اتجاه وهيكلية السوق (Market Regime & Trend Engine)</h1>
+<p>
+    لمنع التداول العشوائي أو الشراء في قيعان هابطة، تم تزويد النظام بمحرك تصنيف متعدد الأبعاد:
+</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>عنصر الفحص</th>
+            <th>طريقة الحساب الرياضية</th>
+            <th>التصنيف والدلالة</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>مؤشر قوة الاتجاه (Wilder's ADX)</strong></td>
+            <td>حساب $ADX_{14}$ التراكمي بدون تسريب سببي.</td>
+            <td>&ge; 25: ترند قوي حقيقي | 18 - 25: ترند معتدل | &lt; 18: سوق عرضي متذبذب.</td>
+        </tr>
+        <tr>
+            <td><strong>اصطفاف المتوسطات الأسية</strong></td>
+            <td>مقارنة $EMA_{20}, EMA_{50}, EMA_{200}$ وموقع السعر.</td>
+            <td>20 &gt; 50 &gt; 200: صعود مؤسسي | 20 &lt; 50 &lt; 200: هبوط مؤسسي ضاغط.</td>
+        </tr>
+        <tr>
+            <td><strong>هيكلية حركة السعر (Price Action)</strong></td>
+            <td>رصد قمم وقيعان التأرجح (Local Swing Highs/Lows).</td>
+            <td>$HH/HL$: توسع صاعد | $LH/LL$: هبوط مستمر وكسر قيعان.</td>
+        </tr>
+        <tr>
+            <td><strong>التحيز التداولي التشغيلي (Bias)</strong></td>
+            <td>توليف المؤشرات الثلاثة في قرار استراتيجي.</td>
+            <td><code>BUY_DIPS_ONLY</code> في الصعود | <code>SELL_RALLIES_ONLY</code> في الهبوط.</td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- ========================================================================= -->
+<!-- القسم 7: نظام التداول المشروط وفلتر حماية رأس المال -->
+<!-- ========================================================================= -->
+<h1>7. نظام التداول المشروط وفلتر حماية رأس المال (Tactical Execution)</h1>
+<div class="callout callout-danger">
+    <strong>🛡️ فلتر حماية رأس المال (Capital Protection Guard):</strong>
+    عندما يكون اتجاه السوق هابطاً بقوة (<code>STRONG_BEARISH</code>) والتحيز هو <code>SELL_RALLIES_ONLY</code>، حتى لو تنبأت نماذج التعلم الآلي بارتداد طفيف (+0.08%)، فإن النظام <strong>يمنع صفقات الشراء المتهورة ضد الترند العام</strong> ويحول الخطة التكتيكية لانتظار صعود تصحيحي نحو منطقة العرض لفتح صفقة بيع (Short Pullback) بنسبة مخاطرة لعائد ممتازة ($R:R \ge 1.5:1$).
+</div>
+
+<p>يقوم المحرك بإنشاء وتأكيد الإشارات التكتيكية وفق الشروط التالية:</p>
+<ul>
+    <li><strong>إشارات البيع المؤكدة (CONFIRMED_SELL):</strong> شمعة شهاب (Shooting Star) أو ابتلاع بيعي (Bearish Engulfing) عند ملامسة منطقة العرض والمقاومة.</li>
+    <li><strong>إشارات الشراء المؤكدة (CONFIRMED_BUY):</strong> شمعة مطرقة (Hammer / Pinbar) أو ابتلاع شرائي عند منطقة الطلب والدعم مع ترند داعم.</li>
+    <li><strong>الانتظار للتأكيد (PENDING_CONFIRMATION):</strong> السعر داخل النطاق دون إغلاق شمعة انعكاسية واضحة، فيوصي النظام بالصبر حتى إغلاق الشمعة.</li>
+    <li><strong>إلغاء السيناريو عند الاختراق (INVALIDATED_BREAKOUT):</strong> إغلاق شمعة قوية خارج المقاومة يبطل سيناريو الارتداد وينبه المتداول لاتباع الزخم.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- ========================================================================= -->
+<!-- القسم 8: الرسوم البيانية التفاعلية والمطبوعة -->
+<!-- ========================================================================= -->
+<h1>8. المخططات البيانية التفاعلية والمطبوعة (Visual Charting)</h1>
+<p>
+    يولد النظام تلقائياً مخططين فائقين الدقة بعد كل عملية تنبؤ:
+</p>
+
+<h3>1. المخطط التفاعلي المستقل (Plotly HTML):</h3>
+<ul>
+    <li><strong>المسار:</strong> <code>artifacts/figures/{SYMBOL}_forecast_projection_{HORIZON}h.html</code></li>
+    <li><strong>شريط الاتجاه العلوي (Banner):</strong> يعرض نوع النظام، قوة الـ ADX، الهيكل السعري، التحيز، والأنماط النشطة بألوان معبرة.</li>
+    <li><strong>خطوط المتوسطات الثلاثة:</strong> $EMA_{20}$ (سماوي)، $EMA_{50}$ (برتقالي)، و $EMA_{200}$ (بنفسجي منقط).</li>
+    <li><strong>شارات هيكل السوق:</strong> شارات $HH, HL, LH, LL$ ملونة وفق طبيعة الحركة دون تشويش.</li>
+    <li><strong>مناطق العرض والطلب:</strong> مستطيلات مظللة شفافة أنيقة (خضراء وحمراء).</li>
+    <li><strong>مستويات الأسعار الموحدة:</strong> خطوط منقطة لوقف الخسارة، المقاومة، والهدف بمحاذاة المقياس السعري الأيمن دون أي تداخل.</li>
+    <li><strong>مخروط عدم اليقين (95% Corridor):</strong> يوضح المدى الإحصائي المتوقع لتقلبات السعر.</li>
+</ul>
+
+<h3>2. المخطط الثابت عالي الجودة (Matplotlib PNG):</h3>
+<ul>
+    <li><strong>المسار:</strong> <code>artifacts/figures/{SYMBOL}_forecast_projection_{HORIZON}h.png</code></li>
+    <li>مناسب للمشاركة السريعة والتقارير المطبوعة والمقالات الأكاديمية بدقة 300 DPI.</li>
+</ul>
+
+<!-- ========================================================================= -->
+<!-- القسم 9: دليل إعادة ضبط إعدادات المشروع بالكامل -->
+<!-- ========================================================================= -->
+<div class="page-break"></div>
+<h1>9. دليل إعادة ضبط وتخصيص إعدادات المشروع (Configuration Guide)</h1>
+<div class="callout callout-info">
+    <strong>💡 مبدأ الإعدادات المركزية:</strong>
+    يتم التحكم بكامل سلوك النظام عبر ملفات YAML داخل مجلد <code>configs/</code> دون الحاجة للمساس بالكود البرمجي الأساسي.
+</div>
+
+<h3>أولاً: تخصيص ملف الإعدادات الرئيسي <code>configs/default_config.yaml</code>:</h3>
+<table>
+    <thead>
+        <tr>
+            <th>المفتاح (Key)</th>
+            <th>القيمة الافتراضية</th>
+            <th>الشرح وكيفية التعديل</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>assets.default_symbol</code></td>
+            <td><code>"BTCUSDT"</code></td>
+            <td>العملة الافتراضية للتنبؤ والتدريب (يمكن تغييرها إلى <code>"ETHUSDT"</code> أو <code>"SOLUSDT"</code>).</td>
+        </tr>
+        <tr>
+            <td><code>assets.default_interval</code></td>
+            <td><code>"1h"</code></td>
+            <td>الإطار الزمني للشموع (مثل <code>"15m"</code>, <code>"1h"</code>, <code>"4h"</code>, <code>"1d"</code>).</td>
+        </tr>
+        <tr>
+            <td><code>data.raw_dir</code></td>
+            <td><code>"data/raw"</code></td>
+            <td>مجلد تخزين البيانات الخام المسترجعة من الـ API.</td>
+        </tr>
+        <tr>
+            <td><code>splitting.train_ratio</code></td>
+            <td><code>0.70</code></td>
+            <td>نسبة مجموعة التدريب (70%). يمكن تعديلها مع <code>val_ratio: 0.15</code> و <code>test_ratio: 0.15</code>.</td>
+        </tr>
+        <tr>
+            <td><code>features.forecast_horizons</code></td>
+            <td><code>[1, 4, 24]</code></td>
+            <td>قائمة الآفاق الزمنية الافتراضية المستخدمة في التجارب البرمجية المجدولة.</td>
+        </tr>
+        <tr>
+            <td><code>features.rolling_windows</code></td>
+            <td><code>[6, 12, 24, 48, 168]</code></td>
+            <td>أطوال نوافذ التدحرج للمتوسطات ومقاييس التقلب والانحراف المعياري.</td>
+        </tr>
+        <tr>
+            <td><code>optimization.enabled</code></td>
+            <td><code>false</code></td>
+            <td>تفعيل تحسين المعاملات الفائقة التلقائي عبر Optuna (اجعلها <code>true</code> للضبط الدقيق).</td>
+        </tr>
+        <tr>
+            <td><code>optimization.n_trials</code></td>
+            <td><code>25</code></td>
+            <td>عدد المحاولات الاستكشافية لخوارزمية Optuna التوليفية.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>ثانياً: إضافة وتخصيص العملات في <code>configs/symbols_config.yaml</code>:</h3>
+<p>لإضافة أي عملة جديدة للنظام، ما عليك سوى إضافة كتلة البيانات الخاصة بها في نهاية الملف، مثال إضافة عملة كاردانو (ADA):</p>
+<pre>
+ADAUSDT:
+  name: "Cardano / Tether USD"
+  base_asset: "ADA"
+  quote_asset: "USDT"
+  tick_size: 0.0001
+  min_notional: 5.0
+  typical_annualized_volatility: 0.85
+  description: "Proof-of-stake blockchain network."
+</pre>
+
+<h3>ثالثاً: كيفية إعادة ضبط النماذج القديمة وتدريب نماذج جديدة بالكامل:</h3>
+<p>إذا قمت بتعديل الخصائص أو تغيير العملة وترغب في محو النماذج السابقة وبدء تدريب جديد ونظيف من الصفر:</p>
+<pre>
+# 1. حذف النماذج القديمة المخزنة
+del artifacts\models\*.joblib
+
+# 2. تشغيل التنبؤ مع خيار التدريب التلقائي على البيانات الجديدة
+run_predict.bat --symbol BTCUSDT --horizon 17
+</pre>
+
+<div class="page-break"></div>
+
+<!-- ========================================================================= -->
+<!-- القسم 10: دليل التنفيذ والتشغيل خطوة بخطوة -->
+<!-- ========================================================================= -->
+<h1>10. دليل التنفيذ والتشغيل خطوة بخطوة (Step-by-Step Execution)</h1>
+
+<h3>1. الطريقة الأسهل: التشغيل بنقرة واحدة عبر Windows Batch:</h3>
+<p>تم تضمين سكريبت <code>run_predict.bat</code> الجاهز والذي يكتشف البيئة الافتراضية وينفذ الأمر فوراً:</p>
+<pre>
+# التنبؤ بسعر البيتكوين بعد 17 ساعة مع الكشف الفني ومناطق الدخول
+run_predict.bat --symbol BTCUSDT --horizon 17
+
+# التنبؤ بسعر الإيثيريوم بعد 24 ساعة
+run_predict.bat --symbol ETHUSDT --horizon 24
+
+# التنبؤ بسعر سولانا بعد 6 ساعات
+run_predict.bat --symbol SOLUSDT --horizon 6
+</pre>
+
+<h3>2. التشغيل عبر PowerShell مع تمرير المعاملات:</h3>
+<pre>
+.\run_predict.ps1 -Symbol BTCUSDT -Horizon 17
+</pre>
+
+<h3>3. التشغيل المباشر عبر بايثون:</h3>
+<pre>
+# تفعيل البيئة الافتراضية (إن لم تكن مفعلة)
+..\..\..\envairoment\.venv\Scripts\Activate.ps1
+
+# تشغيل أمر التنبؤ الحي
+python predict.py --symbol BTCUSDT --horizon 17
+</pre>
+
+<h3>4. تشغيل تجربة تدريب وتقييم شاملة برمجياً (Python API):</h3>
+<p>إذا أردت دمج المشروع في تطبيق آخر أو تشغيل خط أنابيب التدريب والتقييم برمجياً:</p>
+<pre>
+from crypto_prediction.pipeline.trainer import PipelineTrainer
+
+# إنشاء كائن التدريب
+trainer = PipelineTrainer()
+
+# تشغيل تدفق التجربة الكامل
+results = trainer.run_experiment(
+    symbol="BTCUSDT",
+    interval="1h",
+    horizon=17,
+    total_bars=1000,
+    optimize_hyperparams=False
+)
+
+# طباعة جدول المقارنة وأفضل نموذج تم التوصل إليه
+print("أفضل نموذج:", results["best_model_name"])
+print(results["comparison_df"])
+</pre>
+
+<h3>5. تشغيل حزمة الاختبارات الآلية الشاملة (Pytest 55/55):</h3>
+<pre>
+pytest -v
+# أو لاختصار المخرجات:
+pytest --tb=short
+</pre>
+
+<h3>6. فتح الدفتر الاستكشافي التفاعلي باللغة العربية (Jupyter Notebook):</h3>
+<pre>
+jupyter notebook notebooks/Crypto_Price_Prediction.ipynb
+</pre>
+
+<div class="page-break"></div>
+
+<!-- ========================================================================= -->
+<!-- القسم 11: استكشاف الأخطاء الشائعة وحلها -->
+<!-- ========================================================================= -->
+<h1>11. استكشاف الأخطاء الشائعة وحلها (Troubleshooting & FAQs)</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>المشكلة أو الخطأ</th>
+            <th>السبب الفعلي</th>
+            <th>خطوات الحل الفوري</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>انقطاع الإنترنت أو حجب Binance API</strong></td>
+            <td>عدم توفر اتصال بالشبكة أو قيود جغرافية على API.</td>
+            <td>النظام مبرمج ذاتياً للتحول التلقائي للوضع غير المتصل (<code>Offline Mode</code>) واستخدام العينات المحلية المدمجة في <code>data/sample/</code> دون توقف العمل.</td>
+        </tr>
+        <tr>
+            <td><strong>خطأ في مسار البيئة الافتراضية</strong></td>
+            <td>تشغيل الأمر من مجلد آخر أو عدم توافق المسار.</td>
+            <td>استخدم <code>run_predict.bat</code> دائماً؛ فهو يحتوي على المسار المطلق للبيئة في جهازك تلقائياً.</td>
+        </tr>
+        <tr>
+            <td><strong>أخطاء ترميز النصوص (UTF-8 Unicode)</strong></td>
+            <td>موجه أوامر ويندوز الافتراضي يستخدم أحياناً ترميز <code>cp1256</code>.</td>
+            <td>تم ضبط كافة ملفات المشروع لتقرأ وتكتب باستخدام <code>encoding='utf-8'</code> حصراً. في حال واجهت مشكلة في التيرمينال، نفذ: <code>chcp 65001</code>.</td>
+        </tr>
+        <tr>
+            <td><strong>الرغبة في استعادة حالة سابقة للمشروع</strong></td>
+            <td>حدوث تعديل خاطئ غير مرغوب فيه.</td>
+            <td>توجد نسخة احتياطية كاملة ونظيفة ومضغوطة جاهزة للاسترجاع الفوري في المسار المخصص للنسخ الاحتياطية.</td>
+        </tr>
+    </tbody>
+</table>
+
+<!-- ========================================================================= -->
+<!-- القسم 12: إخلاء المسؤولية القانونية والمالية -->
+<!-- ========================================================================= -->
+<h1>12. إخلاء المسؤولية الصريح والختام (Disclaimer & Conclusion)</h1>
+<div class="callout callout-warning">
+    <strong>⚠️ إخلاء مسؤولية مالي صريح (Financial Disclaimer):</strong>
+    هذا المشروع تم بناؤه وتطويره للأغراض البحثية والهندسية والتعليمية وعلوم البيانات فقط. أسواق العملات المشفرة شديدة التقلب وعالية المخاطر، ولا يقدم هذا النظام أو أي من نماذجه أو رسومه البيانية أي نصيحة استثمارية أو مالية أو ضمانات بالأرباح. تقع كامل المسؤولية القانونية والمالية لقرارات التداول وإدارة رأس المال على عاتق المستخدم وحده.
+</div>
+
+<p style="text-align: center; margin-top: 30px; color: #64748b; font-size: 12px;">
+    تم إعداد وتوليد هذا المستند آلياً وفق أعلى معايير التوثيق الهندسي الصارم.<br>
+    <strong>Crypto Price Prediction AI &copy; 2026. All Rights Reserved.</strong>
+</p>
+
+</body>
+</html>

@@ -1,0 +1,28 @@
+# Crypto Symbols Metadata and Domain Knowledge
+
+BTCUSDT:
+  name: "Bitcoin / Tether USD"
+  base_asset: "BTC"
+  quote_asset: "USDT"
+  tick_size: 0.01
+  min_notional: 5.0
+  typical_annualized_volatility: 0.60
+  description: "Market leader, store-of-value narrative, high liquidity, benchmark asset."
+
+ETHUSDT:
+  name: "Ethereum / Tether USD"
+  base_asset: "ETH"
+  quote_asset: "USDT"
+  tick_size: 0.01
+  min_notional: 5.0
+  typical_annualized_volatility: 0.75
+  description: "Smart contract platform leader, high correlation with BTC, network fee dynamics."
+
+SOLUSDT:
+  name: "Solana / Tether USD"
+  base_asset: "SOL"
+  quote_asset: "USDT"
+  tick_size: 0.01
+  min_notional: 5.0
+  typical_annualized_volatility: 0.95
+  description: "High-throughput Layer-1 blockchain, higher beta relative to BTC and ETH."

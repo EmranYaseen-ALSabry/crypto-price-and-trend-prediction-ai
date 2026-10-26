@@ -1,0 +1,26 @@
+{
+  "experiment_id": "EXP_BTCUSDT_1h_20261024_234401",
+  "timestamp_utc": "2026-10-24T23:44:01.524111+00:00",
+  "symbol": "BTCUSDT",
+  "interval": "1h",
+  "horizon": 1,
+  "data_source": "binance_live",
+  "is_synthetic": false,
+  "market_claims_allowed": true,
+  "start_time": "2026-09-13 08:00:00+00:00",
+  "last_bar_timestamp": "2026-10-24 22:00:00+00:00",
+  "raw_row_count": 999,
+  "clean_row_count": 999,
+  "feature_count": 35,
+  "train_row_count": 581,
+  "val_row_count": 124,
+  "test_row_count": 123,
+  "random_seed": 42,
+  "library_versions": {
+    "python": "3.14.5",
+    "pandas": "3.0.6",
+    "numpy": "2.5.4",
+    "sklearn": "1.9.1"
+  },
+  "best_model_by_validation_rmse": "RandomForest"
+}

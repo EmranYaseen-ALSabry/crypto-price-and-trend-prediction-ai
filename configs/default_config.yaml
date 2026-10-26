@@ -1,0 +1,101 @@
+# Default Configuration for Crypto Price Prediction AI
+
+project_name: "Crypto Price Prediction AI"
+version: "1.0.0"
+random_seed: 42
+
+# Supported assets and market conventions
+assets:
+  supported_symbols:
+    - "BTCUSDT"
+    - "ETHUSDT"
+    - "SOLUSDT"
+  default_symbol: "BTCUSDT"
+  default_interval: "1h"
+
+# Data acquisition settings
+data:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  sample_dir: "data/sample"
+  api:
+    provider: "binance"
+    base_url: "https://api.binance.com/api/v3/klines"
+    rate_limit_delay_seconds: 0.25
+    request_timeout_seconds: 10
+    max_retries: 3
+  validation:
+    require_columns: ["open_time", "open", "high", "low", "close", "volume"]
+    check_monotonic_increasing: true
+    drop_exact_duplicates: true
+    max_allowed_consecutive_missing_bars: 5
+
+# Splitting and walk-forward configuration
+splitting:
+  method: "chronological" # "chronological" or "walk_forward"
+  train_ratio: 0.70
+  val_ratio: 0.15
+  test_ratio: 0.15
+  walk_forward:
+    n_splits: 4
+    train_window_bars: 1000
+    val_window_bars: 200
+    step_bars: 150
+    purge_bars: 24  # gap equal to maximum forecast horizon to prevent overlap
+
+# Feature engineering parameters
+features:
+  target_column: "close"
+  target_type: "return" # "return" for fractional return, "log_return" or "price"
+  forecast_horizons: [1, 4, 24] # 1 hour, 4 hours, 24 hours ahead
+  primary_horizon: 1
+  return_lags: [1, 2, 3, 6, 12, 24, 48]
+  rolling_windows: [6, 12, 24, 48, 168]
+  rsi_periods: [7, 14, 28]
+  macd:
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+  bollinger:
+    window: 20
+    num_std: 2.0
+  atr:
+    window: 14
+  volume_features:
+    volume_lags: [1, 2, 4]
+    volume_sma_windows: [12, 24]
+  cyclical_time_features: true # hour of day sin/cos, day of week sin/cos
+
+# Modeling and comparison
+models:
+  baseline_models:
+    - "last_value"
+    - "zero_return"
+  ml_models:
+    - "linear_regression"
+    - "ridge"
+    - "random_forest"
+    - "hist_gradient_boosting"
+    - "xgboost"
+    - "lightgbm"
+    - "catboost"
+  optional_dl_models:
+    - "lstm"
+
+# Hyperparameter optimization settings
+optimization:
+  enabled: false
+  n_trials: 25
+  timeout_seconds: 300
+  cv_splits: 3
+  metric: "rmse"
+
+# Evaluation and reporting
+evaluation:
+  metrics:
+    - "mae"
+    - "rmse"
+    - "r2"
+    - "directional_accuracy"
+  reports_dir: "reports"
+  artifacts_dir: "artifacts"

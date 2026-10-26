@@ -1,0 +1,255 @@
+"""CLI script for dynamic live cryptocurrency price, return, and chart pattern forecasting."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+import numpy as np
+import pandas as pd
+
+# Fix Windows console UTF-8 encoding
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# Add src to sys.path
+src_path = Path(__file__).resolve().parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+from crypto_prediction.data.cleaner import DataCleaner
+from crypto_prediction.data.collector import DataCollector
+from crypto_prediction.features.engineer import FeatureEngineer
+from crypto_prediction.features.patterns import ConfirmationSignal, PatternRecognizer
+from crypto_prediction.models.boosters import CatBoostModel, LightGBMModel, XGBoostModel
+from crypto_prediction.models.linear import LinearRegressionModel, RidgeModel
+from crypto_prediction.models.trees import RandomForestModel
+from crypto_prediction.utils.chart_plotter import AdvancedChartVisualizer
+
+
+def run_live_prediction(
+    symbol: str = "BTCUSDT",
+    horizon: int = 1,
+    auto_train_if_missing: bool = True,
+    render_charts: bool = True,
+) -> None:
+    """Fetches live market data, identifies technical patterns, and outputs dynamic forecasts."""
+    sym = symbol.upper()
+    print("=" * 72)
+    print(f"  Crypto Price Prediction AI - Dynamic Horizon & Pattern Forecasting")
+    print(f"  Asset: {sym} | Target Horizon: {horizon} Hour(s) Ahead")
+    print("=" * 72)
+
+    collector = DataCollector()
+    raw_df = collector.fetch_historical_bars(symbol=sym, interval="1h", total_bars=1000)
+
+    cleaner = DataCleaner()
+    clean_df = cleaner.clean(raw_df)
+
+    last_time = clean_df.index[-1]
+    current_price = float(clean_df["close"].iloc[-1])
+
+    # 1. Technical Chart & Candlestick Pattern Recognition
+    print(f"\n[+] Last Recorded Bar: {last_time} UTC")
+    print(f"[+] Current Market Price: ${current_price:,.2f}")
+
+    recognizer = PatternRecognizer()
+
+    # Market Regime & Trend Structure Recognition
+    market_regime = recognizer.detect_market_regime(clean_df)
+    reg_icon = "🟢" if "BULLISH" in market_regime.regime else ("🔴" if "BEARISH" in market_regime.regime else "🟡")
+    print(f"\n[◈] Market Trend & Regime Analysis:")
+    print("-" * 72)
+    print(f"  Regime Classification: {market_regime.regime} {reg_icon} ({market_regime.adx_level}, ADX: {market_regime.adx})")
+    print(f"  Market Structure:      {market_regime.structure}")
+    print(f"  EMA Alignment:         {market_regime.ema_alignment}")
+    print(f"  Key Moving Averages:   EMA20: ${market_regime.ema20_last:,.2f} | EMA50: ${market_regime.ema50_last:,.2f} | EMA200: ${market_regime.ema200_last:,.2f}")
+    print(f"  Operational Bias:      {market_regime.trend_bias}")
+    print(f"  Analysis Note:         {market_regime.description}")
+
+    detected_patterns = recognizer.identify_latest_patterns(clean_df, recent_bars=15)
+
+    print("\n[★] Detected Technical & Chart Patterns:")
+    print("-" * 72)
+    if detected_patterns:
+        for p in detected_patterns:
+            icon = "▲ [BULLISH]" if p.signal == "bullish" else "▼ [BEARISH]" if p.signal == "bearish" else "■ [NEUTRAL]"
+            print(f"  {icon:<14} {p.name:<26} (Confidence: {p.confidence*100:.0f}%)")
+            print(f"    -> Description: {p.description}")
+            print(f"    -> Pattern Target Bias: {p.target_price_delta*100:+.2f}%")
+    else:
+        print("  No high-conviction reversal pattern formed in the trailing 15 bars.")
+
+    # 2. Dynamic Feature Engineering
+    engineer = FeatureEngineer(primary_horizon=horizon, include_patterns=True)
+    X, y, meta = engineer.prepare_dataset(clean_df, target_horizon=horizon, drop_warmup=True)
+
+    latest_features = engineer.compute_features(clean_df).iloc[-1:]
+
+    # 3. Model Predictions (Load pre-trained or dynamic train on-the-fly)
+    models_info = [
+        ("CatBoost", CatBoostModel),
+        ("Ridge", RidgeModel),
+        ("LightGBM", LightGBMModel),
+        ("XGBoost", XGBoostModel),
+        ("RandomForest", RandomForestModel),
+        ("LinearRegression", LinearRegressionModel),
+    ]
+
+    models_dir = Path("artifacts/models")
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"\n[-] Model Forecasts for {horizon}-Hour Horizon:")
+    print("-" * 72)
+    print(f"{'Model Name':<18} | {'Return Forecast':<16} | {'Price Target':<14} | {'Direction'}")
+    print("-" * 72)
+
+    predicted_returns: list[float] = []
+
+    for name, model_cls in models_info:
+        model_file = models_dir / f"{sym}_{name}_h{horizon}.joblib"
+        model = None
+        if model_file.exists():
+            model = model_cls.load(model_file)
+        elif auto_train_if_missing:
+            # Dynamically train on-the-fly for this exact horizon
+            if name == "CatBoost":
+                model = CatBoostModel(iterations=100, depth=4, verbose=0)
+            elif name == "Ridge":
+                model = RidgeModel(alpha=1.0)
+            elif name == "LightGBM":
+                model = LightGBMModel(n_estimators=100, max_depth=4, verbose=-1)
+            elif name == "XGBoost":
+                model = XGBoostModel(n_estimators=100, max_depth=4)
+            elif name == "RandomForest":
+                model = RandomForestModel(n_estimators=100, max_depth=5)
+            elif name == "LinearRegression":
+                model = LinearRegressionModel()
+
+            if model is not None:
+                model.fit(X, y)
+                model.save(model_file)
+
+        if model is not None:
+            ret = float(model.predict(latest_features)[0])
+            predicted_returns.append(ret)
+            target_p = current_price * (1.0 + ret)
+            direction = "▲ UP (Bullish)" if ret > 0 else "▼ DOWN (Bearish)"
+            print(f"{name:<18} | {ret * 100:>+12.3f}%   | ${target_p:>11,.2f} | {direction}")
+
+    if predicted_returns:
+        avg_ret = float(np.mean(predicted_returns))
+        avg_price = current_price * (1.0 + avg_ret)
+        avg_dir = "▲ UP (Bullish)" if avg_ret > 0 else "▼ DOWN (Bearish)"
+
+        # Calculate prediction interval based on horizon and volatility
+        std_ret = float(np.std(predicted_returns)) if len(predicted_returns) > 1 else 0.005
+        # ATR / volatility scaled to horizon
+        hourly_vol = float(clean_df["close"].pct_change().rolling(24).std().iloc[-1])
+        horizon_vol = hourly_vol * np.sqrt(horizon)
+        margin_error = max(1.96 * horizon_vol, std_ret * 1.96)
+        lower_price = current_price * (1.0 + avg_ret - margin_error)
+        upper_price = current_price * (1.0 + avg_ret + margin_error)
+
+        print("-" * 72)
+        print(f"{'ENSEMBLE AVERAGE':<18} | {avg_ret * 100:>+12.3f}%   | ${avg_price:>11,.2f} | {avg_dir}")
+        print(f"{'PREDICTION CONE (95%)':<18} | ${lower_price:>11,.2f}  <--->  ${upper_price:>11,.2f}")
+        print("=" * 72)
+
+        # 4. Conditional Scenario Trading & Candlestick Confirmation Evaluation
+        support_s, resist_s = recognizer.compute_dynamic_support_resistance(
+            clean_df["high"], clean_df["low"], clean_df["close"], window=48
+        )
+        last_support = float(support_s.dropna().iloc[-1]) if not support_s.dropna().empty else current_price * 0.98
+        last_resistance = float(resist_s.dropna().iloc[-1]) if not resist_s.dropna().empty else current_price * 1.02
+
+        confirmation_signal = recognizer.evaluate_confirmation_signal(
+            df=clean_df,
+            horizon=horizon,
+            predicted_price=avg_price,
+            current_price=current_price,
+            support=last_support,
+            resistance=last_resistance,
+            market_regime=market_regime,
+        )
+
+        badge_map = {
+            "CONFIRMED_SELL": "[CONFIRMED REVERSAL TRIGGER - ENTER SHORT]",
+            "CONFIRMED_BUY": "[CONFIRMED REVERSAL TRIGGER - ENTER LONG]",
+            "PENDING_CONFIRMATION": "[PENDING CONFIRMATION - WAIT FOR CANDLE CLOSE]",
+            "INVALIDATED_BREAKOUT": "[INVALIDATED BREAKOUT - MOMENTUM LONG SHIFT]",
+            "INVALIDATED_BREAKDOWN": "[INVALIDATED BREAKDOWN - MOMENTUM SHORT SHIFT]",
+            "NEUTRAL": "[NEUTRAL - NO SETUP]",
+        }
+        status_badge = badge_map.get(confirmation_signal.status, f"[{confirmation_signal.status}]")
+
+        action_map = {
+            "SHORT": "SHORT PULLBACK (Target Lower Prediction Boundary)",
+            "LONG": "LONG DIP (Target Upper Prediction Boundary)",
+            "WAIT": "WAIT / STANDBY (Corridor Retest in Progress)",
+        }
+        trade_action = action_map.get(confirmation_signal.setup_type, confirmation_signal.setup_type)
+
+        entry_min = min(confirmation_signal.entry_range)
+        entry_max = max(confirmation_signal.entry_range)
+
+        print("\n" + "=" * 72)
+        print("  TACTICAL EXECUTION SETUP & CANDLESTICK CONFIRMATION")
+        print("=" * 72)
+        print(f"  Status Badge:       {status_badge}")
+        print(f"  Trade Action:       {trade_action}")
+        print(f"  Entry Corridor:     ${entry_min:>11,.2f}  <--->  ${entry_max:>11,.2f}")
+        print(f"  Stop Loss:          ${confirmation_signal.stop_loss:>11,.2f}")
+        print(f"  Take Profit:        ${confirmation_signal.take_profit:>11,.2f}")
+        print(f"  Risk / Reward (R:R): {confirmation_signal.risk_reward_ratio:>10.2f} : 1")
+        print(f"  Trigger Candle:     {confirmation_signal.trigger_candle_name}")
+        print(f"  Invalidation Level: ${confirmation_signal.invalidation_price:>11,.2f}")
+        print(f"  Reversal Condition: {confirmation_signal.rationale}")
+        print("=" * 72 + "\n")
+
+        # 5. Render and Save Visual Charts
+        if render_charts:
+            figures_dir = Path("artifacts/figures")
+            figures_dir.mkdir(parents=True, exist_ok=True)
+            html_path = figures_dir / f"{sym}_forecast_projection_{horizon}h.html"
+            png_path = figures_dir / f"{sym}_forecast_projection_{horizon}h.png"
+
+            visualizer = AdvancedChartVisualizer()
+            visualizer.create_interactive_projection_chart(
+                df=clean_df,
+                symbol=sym,
+                horizon=horizon,
+                predicted_price=avg_price,
+                lower_bound=lower_price,
+                upper_bound=upper_price,
+                patterns=detected_patterns,
+                save_html_path=html_path,
+                confirmation_signal=confirmation_signal,
+            )
+            visualizer.render_matplotlib_projection(
+                df=clean_df,
+                symbol=sym,
+                horizon=horizon,
+                predicted_price=avg_price,
+                lower_bound=lower_price,
+                upper_bound=upper_price,
+                save_path=png_path,
+                confirmation_signal=confirmation_signal,
+            )
+            print(f"[✓] Interactive Chart Generated: {html_path}")
+            print(f"[✓] Static Projection Chart:     {png_path}\n")
+
+    print("Disclaimer: For research & quantitative education only. Not financial advice.\n")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Live Crypto Price & Pattern Prediction CLI")
+    parser.add_argument("--symbol", type=str, default="BTCUSDT", help="Crypto symbol (BTCUSDT, ETHUSDT, SOLUSDT)")
+    parser.add_argument("--horizon", type=int, default=1, help="Forecast horizon in hours (e.g. 17 for 17h ahead)")
+    parser.add_argument("--no-charts", action="store_true", help="Disable chart rendering")
+    args = parser.parse_args()
+
+    run_live_prediction(symbol=args.symbol, horizon=args.horizon, render_charts=not args.no_charts)

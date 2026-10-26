@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crypto-price-prediction-ai"
+version = "1.0.0"
+description = "Professional, leakage-free time-series forecasting and return prediction system for cryptocurrencies (BTC, ETH, SOL)."
+readme = "README.md"
+authors = [
+    { name = "Senior ML & Financial Data Science Architect" }
+]
+requires-python = ">=3.10"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "numpy>=1.26.0",
+    "pandas>=2.1.0",
+    "scipy>=1.11.0",
+    "scikit-learn>=1.3.0",
+    "xgboost>=2.0.0",
+    "lightgbm>=4.0.0",
+    "catboost>=1.2.0",
+    "matplotlib>=3.8.0",
+    "seaborn>=0.13.0",
+    "plotly>=5.18.0",
+    "optuna>=3.5.0",
+    "requests>=2.31.0",
+    "pyyaml>=6.0.1",
+    "tqdm>=4.66.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "nbformat>=5.9.0",
+    "nbclient>=0.10.0",
+    "ipykernel>=6.29.0",
+]
+deeplearning = [
+    "torch>=2.2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
