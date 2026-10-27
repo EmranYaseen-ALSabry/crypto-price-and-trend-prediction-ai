@@ -294,8 +294,10 @@ def run_live_prediction(
                 save_path=png_path,
                 confirmation_signal=confirmation_signal,
             )
-            print(f"[✓] Interactive Chart Generated: {html_path}")
-            print(f"[✓] Static Projection Chart:     {png_path}\n")
+            if html_path.exists():
+                print(f"[✓] Interactive Chart Generated: {html_path}")
+            if png_path.exists():
+                print(f"[✓] Static Projection Chart:     {png_path}\n")
     else:
         print("\n[!] No valid model predictions generated.")
         print("    If model artifacts are missing, run training or pass --train-if-missing.")
@@ -303,11 +305,19 @@ def run_live_prediction(
     print("Disclaimer: For research & quantitative education only. Not financial advice.\n")
 
 
+def _parse_horizon_arg(val: str | int) -> int:
+    """Parses horizon argument allowing either pure integers (e.g. 1, 4) or timeframe-suffixed strings (e.g. '1h', '4h')."""
+    if isinstance(val, int):
+        return val
+    s = str(val).strip().lower().rstrip("mhd")
+    return int(s)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Live Crypto Price & Pattern Prediction CLI")
     parser.add_argument("--symbol", type=str, default="BTCUSDT", help="Crypto symbol (BTCUSDT, ETHUSDT, SOLUSDT)")
     parser.add_argument("--interval", type=str, default="1h", help="Timeframe interval (e.g. 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h)")
-    parser.add_argument("--horizon", type=int, default=1, help="Forecast horizon in bars/periods (e.g. 1 for 1 bar ahead)")
+    parser.add_argument("--horizon", type=_parse_horizon_arg, default=1, help="Forecast horizon in bars/periods (e.g. 1 or '1h')")
     parser.add_argument("--train-if-missing", action="store_true", help="Allow training model artifacts on-the-fly if missing or incompatible")
     parser.add_argument("--no-charts", action="store_true", help="Disable chart rendering")
     args = parser.parse_args()

@@ -7,10 +7,10 @@ param(
 )
 
 $pyExe = "python"
-if (Test-Path ".\.venv\Scripts\python.exe") {
-    $pyExe = ".\.venv\Scripts\python.exe"
-} elseif (Test-Path "..\..\..\envairoment\.venv\Scripts\python.exe") {
+if (Test-Path "..\..\..\envairoment\.venv\Scripts\python.exe") {
     $pyExe = "..\..\..\envairoment\.venv\Scripts\python.exe"
+} elseif (Test-Path ".\.venv\Scripts\python.exe") {
+    $pyExe = ".\.venv\Scripts\python.exe"
 }
 
 $cmdArgs = @("predict.py", "--symbol", $symbol, "--interval", $interval, "--horizon", $horizon)

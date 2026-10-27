@@ -5,9 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
+import logging
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+
+logger = logging.getLogger(__name__)
+
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    HAS_PLOTLY = True
+except ImportError:
+    go = None
+    make_subplots = None
+    HAS_PLOTLY = False
 
 from crypto_prediction.features.patterns import ConfirmationSignal, DetectedPattern, MarketRegime, PatternRecognizer
 
@@ -68,6 +78,10 @@ class AdvancedChartVisualizer:
         Returns:
             Plotly Figure object.
         """
+        if not HAS_PLOTLY:
+            logger.warning("Plotly is not installed. Skipping interactive HTML chart. (Install via: pip install plotly)")
+            return None
+
         # Dynamic recent bars displayed: 300+ bars as requested for comprehensive technical context
         is_minute = interval.endswith("m")
         bars_to_show = max(300, recent_bars)
