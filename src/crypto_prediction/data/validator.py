@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 import pandas as pd
 
 
@@ -21,6 +22,9 @@ class ValidationReport:
     timestamp_gaps: int
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    gap_details: list[dict[str, Any]] = field(default_factory=list)
+    extreme_anomalies: int = 0
+    anomaly_details: list[dict[str, Any]] = field(default_factory=list)
 
     def summary(self) -> str:
         """Returns human-readable validation summary."""
@@ -34,6 +38,7 @@ class ValidationReport:
             f"Non-Positive Prices: {self.non_positive_prices}",
             f"Negative Volumes: {self.negative_volumes}",
             f"Detected Time Gaps: {self.timestamp_gaps}",
+            f"Extreme Anomalies: {self.extreme_anomalies}",
         ]
         if self.errors:
             lines.append("Errors:")
@@ -155,6 +160,7 @@ class DataValidator:
 
         # Gap detection
         time_gaps = 0
+        gap_details: list[dict[str, Any]] = []
         if is_monotonic and duplicates == 0 and len(open_time) > 1:
             diffs = open_time.diff().dropna()
             median_delta = diffs.median()
@@ -163,6 +169,45 @@ class DataValidator:
             time_gaps = int(gap_mask.sum())
             if time_gaps > 0:
                 warnings.append(f"Detected {time_gaps} temporal gaps exceeding expected bar interval {median_delta}.")
+                gap_locs = [i for i, val in enumerate(gap_mask) if val]
+                for loc in gap_locs[:20]:  # record up to 20 gaps
+                    prev_ts = open_time.iloc[loc]
+                    curr_ts = open_time.iloc[loc + 1]
+                    gap_details.append(
+                        {
+                            "gap_start_utc": str(prev_ts),
+                            "gap_end_utc": str(curr_ts),
+                            "duration_hours": round((curr_ts - prev_ts).total_seconds() / 3600.0, 2),
+                        }
+                    )
+
+        # Outlier & extreme anomaly detection (documented: |return| > 20% or (high-low)/open > 40%)
+        extreme_anomalies = 0
+        anomaly_details: list[dict[str, Any]] = []
+        if total_rows > 1 and all(c in df.columns for c in ["open", "high", "low", "close"]):
+            safe_open = df["open"].replace(0, float("nan"))
+            single_bar_returns = ((df["close"] - df["open"]) / safe_open).abs()
+            spreads = ((df["high"] - df["low"]) / safe_open).abs()
+            anomaly_mask = (single_bar_returns > 0.20) | (spreads > 0.40)
+            extreme_anomalies = int(anomaly_mask.sum())
+            if extreme_anomalies > 0:
+                warnings.append(
+                    f"Detected {extreme_anomalies} extreme price/spread anomaly bars (|return| > 20% or spread > 40%)."
+                )
+                anomaly_locs = [i for i, val in enumerate(anomaly_mask) if val]
+                for loc in anomaly_locs[:10]:
+                    ts = open_time.iloc[loc] if hasattr(open_time, "iloc") else df.index[loc]
+                    anomaly_details.append(
+                        {
+                            "open_time": str(ts),
+                            "open": float(df["open"].iloc[loc]),
+                            "high": float(df["high"].iloc[loc]),
+                            "low": float(df["low"].iloc[loc]),
+                            "close": float(df["close"].iloc[loc]),
+                            "abs_return": round(float(single_bar_returns.iloc[loc]), 4),
+                            "spread_ratio": round(float(spreads.iloc[loc]), 4),
+                        }
+                    )
 
         is_valid = len(errors) == 0
 
@@ -178,4 +223,7 @@ class DataValidator:
             timestamp_gaps=time_gaps,
             errors=errors,
             warnings=warnings,
+            gap_details=gap_details,
+            extreme_anomalies=extreme_anomalies,
+            anomaly_details=anomaly_details,
         )

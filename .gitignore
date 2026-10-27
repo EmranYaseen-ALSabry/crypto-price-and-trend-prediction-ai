@@ -55,14 +55,16 @@ catboost_info/
 Thumbs.db
 
 # Heavy or generated artifacts (keep .gitkeep in folders)
+artifacts/**/*.joblib
+artifacts/**/*.pkl
+artifacts/**/*.pt
 artifacts/models/*.joblib
 artifacts/models/*.pkl
 artifacts/models/*.pt
 artifacts/figures/*.png
 artifacts/figures/*.html
-data/raw/*.csv
-data/processed/*.parquet
-data/processed/*.csv
+data/raw/
+data/processed/
 !data/sample/*.csv
 
 # Archives and temporary files

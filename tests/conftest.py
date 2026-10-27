@@ -11,6 +11,9 @@ SRC_DIR = Path(__file__).resolve().parent.parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+import matplotlib
+matplotlib.use("Agg")
+
 from crypto_prediction.data.collector import DataCollector
 
 

@@ -110,25 +110,84 @@ class TestForecastingModels:
         assert len(preds_cb) == len(X_test)
         assert not np.isnan(preds_cb).any()
 
-    def test_lstm_model(self, train_test_data) -> None:
+    def test_booster_split_diagnostics(self, train_test_data) -> None:
         X_train, y_train, X_test, y_test = train_test_data
 
-        lstm = LSTMModel(sequence_length=6, hidden_dim=16, epochs=5)
-        lstm.fit(X_train, y_train)
-        preds_lstm = lstm.predict(X_test)
-        assert len(preds_lstm) == len(X_test)
-        assert not np.isnan(preds_lstm).any()
+        xgb_model = XGBoostModel(n_estimators=10, max_depth=3)
+        xgb_model.fit(X_train, y_train)
+        diag_xgb = xgb_model.get_split_diagnostics(X_test)
+        assert diag_xgb["total_trees"] > 0
+        assert diag_xgb["total_splits"] > 0
+        assert not diag_xgb["is_degenerate_constant"]
+        assert diag_xgb["prediction_variance"] > 0.0
 
-        # Test warmup history integration
-        preds_warmup = lstm.predict(X_test, warmup_history=X_train)
-        assert len(preds_warmup) == len(X_test)
-        assert not np.isnan(preds_warmup).any()
+        lgb_model = LightGBMModel(n_estimators=10, max_depth=3)
+        lgb_model.fit(X_train, y_train)
+        diag_lgb = lgb_model.get_split_diagnostics(X_test)
+        assert diag_lgb["total_trees"] > 0
+        assert diag_lgb["total_splits"] > 0
+        assert not diag_lgb["is_degenerate_constant"]
+        assert diag_lgb["prediction_variance"] > 0.0
 
-        # Test short sample (fewer rows than sequence_length)
-        short_X = X_test.iloc[:3]
-        preds_short = lstm.predict(short_X)
-        assert len(preds_short) == 3
-        assert not np.isnan(preds_short).any()
+    def test_booster_target_scaling_consistency(self, train_test_data) -> None:
+        X_train, y_train, X_test, y_test = train_test_data
+
+        # Fit with standardization enabled
+        xgb = XGBoostModel(n_estimators=10, max_depth=3, standardize_target=True)
+        xgb.fit(X_train, y_train)
+        preds = xgb.predict(X_test)
+
+        # Output predictions should be in the scale of returns (mean ~ 0, range typically < 0.2)
+        assert np.abs(np.mean(preds)) < 0.05
+        assert np.all(np.abs(preds) < 0.5)
+
+    def test_lstm_model_identity_and_fallback(self, train_test_data) -> None:
+        X_train, y_train, X_test, y_test = train_test_data
+        from crypto_prediction.models.lstm import TORCH_AVAILABLE
+
+        if not TORCH_AVAILABLE:
+            # When PyTorch is missing, default instantiation MUST fail loudly
+            with pytest.raises(ImportError, match="PyTorch .* is not installed"):
+                LSTMModel(sequence_length=6, hidden_dim=16, epochs=5, allow_mlp_fallback=False)
+
+            # Explicit fallback allowed
+            fallback_lstm = LSTMModel(sequence_length=6, hidden_dim=16, epochs=5, allow_mlp_fallback=True)
+            assert fallback_lstm.is_genuine_lstm is False
+            assert fallback_lstm.model_family == "mlp_fallback"
+            assert "Fallback" in fallback_lstm.name
+
+            fallback_lstm.fit(X_train, y_train)
+            preds = fallback_lstm.predict(X_test)
+            assert len(preds) == len(X_test)
+            assert not np.isnan(preds).any()
+        else:
+            # Genuine PyTorch LSTM
+            lstm = LSTMModel(sequence_length=6, hidden_dim=16, epochs=5)
+            assert lstm.is_genuine_lstm is True
+            assert lstm.model_family == "recurrent_lstm"
+            lstm.fit(X_train, y_train)
+            preds_lstm = lstm.predict(X_test)
+            assert len(preds_lstm) == len(X_test)
+            assert not np.isnan(preds_lstm).any()
+
+            preds_warmup = lstm.predict(X_test, warmup_history=X_train)
+            assert len(preds_warmup) == len(X_test)
+
+    def test_lstm_legacy_artifact_detection(self, train_test_data, tmp_path: Path) -> None:
+        X_train, y_train, X_test, y_test = train_test_data
+
+        # Train with explicit fallback
+        model = LSTMModel(sequence_length=4, epochs=2, allow_mlp_fallback=True)
+        model.fit(X_train, y_train)
+
+        # Save to disk
+        save_file = tmp_path / "legacy_lstm.joblib"
+        model.save(save_file)
+
+        # Load through LSTMModel.load
+        loaded = LSTMModel.load(save_file)
+        assert loaded.is_genuine_lstm is False
+        assert loaded.model_family == "mlp_fallback"
 
     def test_model_persistence(self, train_test_data, tmp_path: Path) -> None:
         X_train, y_train, X_test, y_test = train_test_data

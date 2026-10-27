@@ -191,6 +191,156 @@ class FeatureRegistry:
             )
         )
 
+        # Candlestick Morphology (Scale-Invariant)
+        self.register(
+            FeatureMetadata(
+                name="candle_hl_spread",
+                category="Morphology",
+                formula="(High_t - Low_t) / Open_t",
+                lookback_window=1,
+                description="Normalized intra-bar high-low range.",
+                causality_proof="Bar t is fully closed. Uses Open, High, Low from bar t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="candle_co_spread",
+                category="Morphology",
+                formula="(Close_t - Open_t) / Open_t",
+                lookback_window=1,
+                description="Normalized bar body (Close minus Open).",
+                causality_proof="Uses Open and Close from finalized bar t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="candle_upper_shadow",
+                category="Morphology",
+                formula="(High_t - max(Open_t, Close_t)) / Open_t",
+                lookback_window=1,
+                description="Normalized upper shadow length.",
+                causality_proof="Uses High, Open, Close from finalized bar t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="candle_lower_shadow",
+                category="Morphology",
+                formula="(min(Open_t, Close_t) - Low_t) / Open_t",
+                lookback_window=1,
+                description="Normalized lower shadow length.",
+                causality_proof="Uses Low, Open, Close from finalized bar t.",
+            )
+        )
+
+        # Volatility-Aware & Regime Normalization
+        self.register(
+            FeatureMetadata(
+                name="volatility_parkinson_24h",
+                category="Volatility",
+                formula="sqrt(1/(4*ln(2)*24) * sum(ln(High/Low)^2))",
+                lookback_window=24,
+                description="Parkinson extreme-value volatility estimator over past 24 bars.",
+                causality_proof="Uses trailing 24 High and Low bars ending at t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="return_vol_standardized_24h",
+                category="Volatility / Normalization",
+                formula="return_1h / (volatility_24h + eps)",
+                lookback_window=24,
+                description="Hourly return standardized by its trailing 24h rolling volatility.",
+                causality_proof="Trailing return at t divided by trailing 24h volatility at t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="vol_ratio_24h_168h",
+                category="Volatility / Term Structure",
+                formula="volatility_24h / (volatility_168h + eps)",
+                lookback_window=168,
+                description="Ratio of short-term (24h) to long-term (168h) realized volatility.",
+                causality_proof="Trailing 24h and 168h windows ending at observation time t.",
+            )
+        )
+
+        # Cross-Asset Lead-Lag & Relative Relationships
+        for lag in [1, 2, 3]:
+            self.register(
+                FeatureMetadata(
+                    name=f"btc_return_lag_{lag}",
+                    category="Cross-Asset / Returns",
+                    formula=f"return_BTC_{{t-{lag}+1}}",
+                    lookback_window=lag,
+                    description=f"Bitcoin hourly return lagged by {lag} period(s).",
+                    causality_proof=f"Uses Bitcoin closed candle returns strictly from index t-{lag}+1 and earlier.",
+                )
+            )
+
+        self.register(
+            FeatureMetadata(
+                name="cross_vol_ratio_btc_24h",
+                category="Cross-Asset / Volatility",
+                formula="volatility_asset_24h / (volatility_BTC_24h + eps)",
+                lookback_window=24,
+                description="Asset 24h volatility divided by Bitcoin 24h volatility.",
+                causality_proof="Both trailing 24h volatilities end at observation time t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="cross_corr_btc_24h",
+                category="Cross-Asset / Correlation",
+                formula="corr(returns_asset[t-23:t], returns_BTC[t-23:t])",
+                lookback_window=24,
+                description="Trailing 24h Pearson correlation of hourly returns between asset and BTC.",
+                causality_proof="Trailing window [t-23, t] ending at observation time t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="cross_mom_spread_btc_24h",
+                category="Cross-Asset / Momentum",
+                formula="momentum_asset_24h - momentum_BTC_24h",
+                lookback_window=24,
+                description="Asset 24h return minus Bitcoin 24h return.",
+                causality_proof="Trailing 24h returns ending at observation time t.",
+            )
+        )
+
+        # Market-Wide Aggregate Indicators
+        self.register(
+            FeatureMetadata(
+                name="market_mean_return_1h",
+                category="Market / Aggregates",
+                formula="mean_k(returns_k_1h)",
+                lookback_window=1,
+                description="Equal-weighted average hourly return across all active crypto assets.",
+                causality_proof="Cross-sectional mean of available returns for bar ending at t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="market_return_dispersion_1h",
+                category="Market / Aggregates",
+                formula="std_k(returns_k_1h)",
+                lookback_window=1,
+                description="Cross-sectional standard deviation of hourly returns across assets.",
+                causality_proof="Cross-sectional standard deviation of returns for bar ending at t.",
+            )
+        )
+        self.register(
+            FeatureMetadata(
+                name="market_mean_volatility_24h",
+                category="Market / Aggregates",
+                formula="mean_k(volatility_k_24h)",
+                lookback_window=24,
+                description="Equal-weighted average trailing 24h volatility across assets.",
+                causality_proof="Cross-sectional mean of trailing 24h volatilities at time t.",
+            )
+        )
+
         # Cyclical Time
         self.register(
             FeatureMetadata(

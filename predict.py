@@ -34,7 +34,7 @@ def run_live_prediction(
     symbol: str = "BTCUSDT",
     horizon: int = 1,
     interval: str = "1h",
-    auto_train_if_missing: bool = True,
+    auto_train_if_missing: bool = False,
     render_charts: bool = True,
 ) -> None:
     """Fetches live market data, identifies technical patterns, and outputs dynamic forecasts."""
@@ -119,44 +119,69 @@ def run_live_prediction(
     print("-" * 72)
 
     predicted_returns: list[float] = []
+    expected_features = list(X.columns)
 
     for name, model_cls in models_info:
+        # Check standard convention first, then fallback to legacy convention
         model_file = models_dir / f"{sym}_{interval}_{name}_h{horizon}.joblib"
+        legacy_file = models_dir / f"{sym}_{name}_h{horizon}.joblib"
+        target_load_file = model_file if model_file.exists() else (legacy_file if legacy_file.exists() else model_file)
+
         model = None
-        if model_file.exists():
+        if target_load_file.exists():
             try:
-                candidate = model_cls.load(model_file)
-                # Verify feature compatibility
-                if hasattr(candidate, "feature_names") and candidate.feature_names == list(X.columns):
-                    model = candidate
-                elif not hasattr(candidate, "feature_names"):
-                    # Check scikit-learn pipeline n_features_in_
-                    if hasattr(candidate, "pipeline") and hasattr(candidate.pipeline.named_steps.get("scaler"), "n_features_in_"):
-                        if candidate.pipeline.named_steps["scaler"].n_features_in_ == X.shape[1]:
-                            model = candidate
+                candidate = model_cls.load(target_load_file)
+                # Verify feature schema compatibility
+                schema_valid = False
+                if hasattr(candidate, "feature_names") and candidate.feature_names is not None:
+                    if candidate.feature_names == expected_features:
+                        schema_valid = True
                     else:
-                        model = candidate
-            except Exception:
+                        print(f"  [!] Schema mismatch for {name}: expected {len(expected_features)} features, artifact has {len(candidate.feature_names)}.")
+                elif hasattr(candidate, "pipeline") and hasattr(candidate.pipeline.named_steps.get("scaler"), "n_features_in_"):
+                    n_in = candidate.pipeline.named_steps["scaler"].n_features_in_
+                    if n_in == len(expected_features):
+                        schema_valid = True
+                    else:
+                        print(f"  [!] Dimension mismatch for {name}: expected {len(expected_features)}, artifact expects {n_in}.")
+                else:
+                    inner_model = getattr(candidate, "model", None)
+                    if hasattr(inner_model, "n_features_in_"):
+                        if inner_model.n_features_in_ == len(expected_features):
+                            schema_valid = True
+                        else:
+                            print(f"  [!] Dimension mismatch for {name}: expected {len(expected_features)}, artifact expects {inner_model.n_features_in_}.")
+                    else:
+                        schema_valid = True
+
+                if schema_valid:
+                    model = candidate
+            except Exception as e:
+                print(f"  [!] Failed loading {target_load_file.name}: {e}")
                 model = None
 
-        if model is None and auto_train_if_missing:
-            # Dynamically train on-the-fly for this exact horizon & interval
-            if name == "CatBoost":
-                model = CatBoostModel(iterations=100, depth=4, verbose=0)
-            elif name == "Ridge":
-                model = RidgeModel(alpha=1.0)
-            elif name == "LightGBM":
-                model = LightGBMModel(n_estimators=100, max_depth=4, verbose=-1)
-            elif name == "XGBoost":
-                model = XGBoostModel(n_estimators=100, max_depth=4)
-            elif name == "RandomForest":
-                model = RandomForestModel(n_estimators=100, max_depth=5)
-            elif name == "LinearRegression":
-                model = LinearRegressionModel()
+        if model is None:
+            if auto_train_if_missing:
+                # Explicitly allowed dynamic training
+                print(f"  [i] Training {name} on-the-fly (auto_train_if_missing=True)...")
+                if name == "CatBoost":
+                    model = CatBoostModel(iterations=100, depth=4, verbose=0)
+                elif name == "Ridge":
+                    model = RidgeModel(alpha=1.0)
+                elif name == "LightGBM":
+                    model = LightGBMModel(n_estimators=100, max_depth=4, verbose=-1)
+                elif name == "XGBoost":
+                    model = XGBoostModel(n_estimators=100, max_depth=4)
+                elif name == "RandomForest":
+                    model = RandomForestModel(n_estimators=100, max_depth=5)
+                elif name == "LinearRegression":
+                    model = LinearRegressionModel()
 
-            if model is not None:
-                model.fit(X, y)
-                model.save(model_file)
+                if model is not None:
+                    model.fit(X, y)
+                    model.save(model_file)
+            else:
+                print(f"  [-] {name:<18} | Skipped (artifact missing or incompatible; pass --train-if-missing)")
 
         if model is not None:
             ret = float(model.predict(latest_features)[0])
@@ -271,6 +296,9 @@ def run_live_prediction(
             )
             print(f"[✓] Interactive Chart Generated: {html_path}")
             print(f"[✓] Static Projection Chart:     {png_path}\n")
+    else:
+        print("\n[!] No valid model predictions generated.")
+        print("    If model artifacts are missing, run training or pass --train-if-missing.")
 
     print("Disclaimer: For research & quantitative education only. Not financial advice.\n")
 
@@ -280,6 +308,7 @@ if __name__ == "__main__":
     parser.add_argument("--symbol", type=str, default="BTCUSDT", help="Crypto symbol (BTCUSDT, ETHUSDT, SOLUSDT)")
     parser.add_argument("--interval", type=str, default="1h", help="Timeframe interval (e.g. 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h)")
     parser.add_argument("--horizon", type=int, default=1, help="Forecast horizon in bars/periods (e.g. 1 for 1 bar ahead)")
+    parser.add_argument("--train-if-missing", action="store_true", help="Allow training model artifacts on-the-fly if missing or incompatible")
     parser.add_argument("--no-charts", action="store_true", help="Disable chart rendering")
     args = parser.parse_args()
 
@@ -287,5 +316,6 @@ if __name__ == "__main__":
         symbol=args.symbol,
         horizon=args.horizon,
         interval=args.interval,
+        auto_train_if_missing=args.train_if_missing,
         render_charts=not args.no_charts,
     )

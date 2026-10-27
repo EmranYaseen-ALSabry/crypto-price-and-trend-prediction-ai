@@ -13,7 +13,12 @@ class ZeroReturnBaseline(BaseModel):
     def __init__(self) -> None:
         super().__init__(name="ZeroReturnBaseline")
 
-    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> ZeroReturnBaseline:
+    def fit(
+        self,
+        X: np.ndarray | pd.DataFrame,
+        y: np.ndarray | pd.Series,
+        sample_weight: np.ndarray | pd.Series | None = None,
+    ) -> ZeroReturnBaseline:
         if isinstance(X, pd.DataFrame):
             self.feature_names = list(X.columns)
         self.is_fitted = True
@@ -53,11 +58,24 @@ class MeanReturnBaseline(BaseModel):
         super().__init__(name="MeanReturnBaseline")
         self.mean_return: float = 0.0
 
-    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> MeanReturnBaseline:
+    def fit(
+        self,
+        X: np.ndarray | pd.DataFrame,
+        y: np.ndarray | pd.Series,
+        sample_weight: np.ndarray | pd.Series | None = None,
+    ) -> MeanReturnBaseline:
         if isinstance(X, pd.DataFrame):
             self.feature_names = list(X.columns)
-        y_arr = np.asarray(y)
-        self.mean_return = float(np.nanmean(y_arr))
+        y_arr = np.asarray(y, dtype=np.float64)
+        if sample_weight is not None:
+            w_arr = np.asarray(sample_weight, dtype=np.float64)
+            valid = (~np.isnan(y_arr)) & (~np.isnan(w_arr))
+            if np.sum(w_arr[valid]) > 0:
+                self.mean_return = float(np.average(y_arr[valid], weights=w_arr[valid]))
+            else:
+                self.mean_return = float(np.nanmean(y_arr))
+        else:
+            self.mean_return = float(np.nanmean(y_arr))
         self.is_fitted = True
         return self
 

@@ -1,0 +1,17 @@
+{
+  "timestamp_utc": "2026-10-27T12:18:26.386966+00:00",
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT"
+  ],
+  "interval": "1h",
+  "horizon": 1,
+  "data_source": "sample",
+  "total_bars_per_asset": 1500,
+  "train_bars": 931,
+  "val_bars": 199,
+  "test_bars": 199,
+  "evaluation_records_count": 63,
+  "backtest_records_count": 63
+}

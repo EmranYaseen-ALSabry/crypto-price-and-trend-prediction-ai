@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -51,7 +52,9 @@ if TORCH_AVAILABLE:
 class LSTMModel(BaseModel):
     """Deep learning sequence model for time-series forecasting.
 
-    Utilizes PyTorch LSTM when installed, or clearly identifies as an MLP sequential regressor fallback.
+    Requires PyTorch for a genuine recurrent LSTM architecture.
+    If PyTorch is absent, raises an ImportError unless allow_mlp_fallback=True
+    is explicitly specified by the caller.
     """
 
     def __init__(
@@ -63,8 +66,19 @@ class LSTMModel(BaseModel):
         batch_size: int = 32,
         learning_rate: float = 0.001,
         random_state: int = 42,
+        allow_mlp_fallback: bool = False,
     ) -> None:
-        model_name = "PyTorch-LSTM" if TORCH_AVAILABLE else "MLPRegressor (LSTM Fallback)"
+        self.allow_mlp_fallback = allow_mlp_fallback
+        self.torch_available = TORCH_AVAILABLE
+
+        if not self.torch_available and not self.allow_mlp_fallback:
+            raise ImportError(
+                "PyTorch (torch) is not installed. To train a genuine recurrent LSTM model, "
+                "install PyTorch (torch>=2.2.0). To deliberately use a scikit-learn MLP fallback "
+                "in environments without PyTorch, pass allow_mlp_fallback=True."
+            )
+
+        model_name = "PyTorch-LSTM" if self.torch_available else "MLPRegressor (LSTM Fallback)"
         super().__init__(name=model_name)
         self.sequence_length = sequence_length
         self.hidden_dim = hidden_dim
@@ -78,7 +92,29 @@ class LSTMModel(BaseModel):
         self.y_scaler = StandardScaler()
         self.torch_model: _PyTorchLSTM | None = None
         self.fallback_model = None
-        self.torch_available = TORCH_AVAILABLE
+
+    @property
+    def is_genuine_lstm(self) -> bool:
+        """Returns True if and only if a genuine PyTorch LSTM model is present."""
+        return self.torch_model is not None and getattr(self, "torch_available", False)
+
+    @property
+    def model_family(self) -> str:
+        """Returns explicit model family: 'recurrent_lstm' or 'mlp_fallback'."""
+        return "recurrent_lstm" if (self.torch_available and (self.torch_model is not None or not self.is_fitted)) else "mlp_fallback"
+
+    @classmethod
+    def load(cls, file_path: str | Path) -> LSTMModel:
+        """Loads a serialized model instance from disk and inspects its genuine identity."""
+        path = Path(file_path)
+        model = super().load(path)
+        if not getattr(model, "is_genuine_lstm", False):
+            logger.warning(
+                f"Model loaded from '{path.name}' is an MLP fallback, NOT a genuine recurrent LSTM."
+            )
+            if hasattr(model, "name") and ("LSTM" in model.name and "Fallback" not in model.name):
+                model.name = "MLPRegressor (Legacy LSTM Fallback)"
+        return model
 
     def _create_sequences(self, X: np.ndarray, y: np.ndarray | None = None):
         """Transforms 2D tabular features into 3D (n_samples, seq_len, n_features) sliding windows."""

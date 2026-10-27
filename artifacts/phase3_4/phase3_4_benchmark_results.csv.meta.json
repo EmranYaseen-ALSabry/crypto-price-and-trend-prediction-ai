@@ -1,0 +1,25 @@
+{
+  "total_evaluations": 216,
+  "approaches": [
+    "A_single_asset_baseline",
+    "B_single_asset_cross_asset",
+    "C_multi_asset_baseline",
+    "D_multi_asset_cross_asset"
+  ],
+  "models": [
+    "ZeroReturn",
+    "MeanReturn",
+    "Ridge",
+    "LightGBM",
+    "CatBoost",
+    "XGBoost"
+  ],
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT"
+  ],
+  "n_folds": 3,
+  "sha256": "148a7b6267cd12b1b05d119c88c8341daa6bed8f53060ab6fc43afcecda5cadc",
+  "generated_at_utc": "2026-10-27 19:16:17.042814+00:00"
+}

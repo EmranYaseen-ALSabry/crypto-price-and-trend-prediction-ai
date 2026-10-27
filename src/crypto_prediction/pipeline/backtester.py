@@ -1,4 +1,27 @@
-"""Realistic Cryptocurrency Trading Strategy Backtester with Fees and Slippage."""
+"""Realistic Cryptocurrency Trading Strategy Backtester with Fees and Slippage.
+
+Execution & Cost Accounting Specifications:
+-------------------------------------------
+1. Fees and Slippage are charged per order / per side:
+   - fee_rate: Exchange fee per side (e.g. 0.10% Binance Spot taker fee).
+   - slippage_rate: Execution slippage per side (e.g. 0.05% market impact).
+   - unit_cost = fee_rate + slippage_rate (e.g. 0.15% per side/order).
+2. Position turnover (|delta pos|) determines total orders executed:
+   - Entering position (Cash 0 -> Long +1): |1 - 0| = 1 order (incurs 1x unit_cost).
+   - Exiting position (Long +1 -> Cash 0): |0 - 1| = 1 order (incurs 1x unit_cost).
+   - A complete round-trip trade (Cash -> Long -> Cash) incurs 2x unit_cost (e.g. 0.30%).
+   - Reversing position (Long +1 -> Short -1): |-1 - 1| = 2 orders (incurs 2x unit_cost).
+   - Final liquidation: any active position held at simulation close is liquidated to cash
+     and charged 1x unit_cost.
+3. Entry & Exit Thresholds:
+   - To open a new trade from Cash, expected return must exceed round-trip friction:
+     entry_threshold = 2.0 * unit_cost (unless explicitly overridden by caller).
+   - Holding vs. Exiting: once in a position, the trade remains active as long as the
+     expected return remains favorable (> 0 for long, < 0 for short), preventing whipsaw churn.
+4. Reporting:
+   - Gross cumulative return, total transaction costs, and net cumulative return are
+     tracked and reported separately.
+"""
 
 from __future__ import annotations
 
@@ -17,7 +40,7 @@ class BacktestResult:
     model_name: str
     total_trades: int
     win_rate: float
-    cumulative_return: float
+    cumulative_return: float  # Net cumulative return after all friction
     benchmark_return: float
     excess_return: float
     sharpe_ratio: float
@@ -26,20 +49,28 @@ class BacktestResult:
     profit_factor: float
     fee_rate: float
     slippage_rate: float
+    gross_cumulative_return: float = 0.0  # Cumulative return before friction
+    total_transaction_costs: float = 0.0  # Sum of all order friction incurred
     min_trades: int = 30
     statistically_reliable: bool = False
+
+    @property
+    def net_cumulative_return(self) -> float:
+        return self.cumulative_return
 
     def summary(self) -> str:
         return (
             f"--- Backtest Performance for {self.model_name} (Fee: {self.fee_rate*100:.2f}%, Slippage: {self.slippage_rate*100:.2f}%) ---\n"
-            f"Total Trades:        {self.total_trades}\n"
-            f"Trade Win Rate:      {self.win_rate*100:.2f}%\n"
-            f"Strategy Net Return: {self.cumulative_return*100:+.2f}%\n"
-            f"Buy & Hold Return:   {self.benchmark_return*100:+.2f}%\n"
-            f"Excess Alpha:        {self.excess_return*100:+.2f}%\n"
-            f"Annualized Sharpe:   {self.sharpe_ratio:.2f}\n"
-            f"Max Drawdown:        {self.max_drawdown*100:.2f}%\n"
-            f"Profit Factor:       {self.profit_factor:.2f}\n"
+            f"Total Trades:            {self.total_trades}\n"
+            f"Trade Win Rate:          {self.win_rate*100:.2f}%\n"
+            f"Strategy Gross Return:   {self.gross_cumulative_return*100:+.2f}%\n"
+            f"Total Transaction Costs: {self.total_transaction_costs*100:.2f}%\n"
+            f"Strategy Net Return:     {self.cumulative_return*100:+.2f}%\n"
+            f"Buy & Hold Return:       {self.benchmark_return*100:+.2f}%\n"
+            f"Excess Net Alpha:        {self.excess_return*100:+.2f}%\n"
+            f"Annualized Sharpe:       {self.sharpe_ratio:.2f}\n"
+            f"Max Drawdown:            {self.max_drawdown*100:.2f}%\n"
+            f"Profit Factor:           {self.profit_factor:.2f}\n"
             + (
                 ""
                 if self.statistically_reliable
@@ -52,13 +83,18 @@ class BacktestResult:
             "model_name": self.model_name,
             "total_trades": self.total_trades,
             "win_rate": self.win_rate,
+            "gross_cumulative_return": self.gross_cumulative_return,
+            "total_transaction_costs": self.total_transaction_costs,
             "cumulative_return": self.cumulative_return,
+            "net_cumulative_return": self.cumulative_return,
             "benchmark_return": self.benchmark_return,
             "excess_return": self.excess_return,
             "sharpe_ratio": self.sharpe_ratio,
             "sortino_ratio": self.sortino_ratio,
             "max_drawdown": self.max_drawdown,
             "profit_factor": self.profit_factor,
+            "fee_rate": self.fee_rate,
+            "slippage_rate": self.slippage_rate,
             "statistically_reliable": self.statistically_reliable,
         }
 
@@ -97,12 +133,12 @@ class StrategyBacktester:
             model_name: Name of the model being evaluated.
             horizon: Holding period / target horizon in bars.
             threshold: Minimum forecasted return to justify trading over friction costs.
-                       Defaults to fee_rate + slippage_rate.
+                       Defaults to round-trip friction: 2.0 * (fee_rate + slippage_rate).
             non_overlapping: If True and horizon > 1, evaluates independent non-overlapping
                              holding steps of length h to avoid compounding overlapping forward returns.
 
         Returns:
-            BacktestResult dataclass instance.
+            BacktestResult dataclass instance with gross, cost, and net metrics.
         """
         r_true_full = np.asarray(y_true, dtype=np.float64)
         r_pred_full = np.asarray(y_pred, dtype=np.float64)
@@ -118,6 +154,8 @@ class StrategyBacktester:
                 total_trades=0,
                 win_rate=0.0,
                 cumulative_return=0.0,
+                gross_cumulative_return=0.0,
+                total_transaction_costs=0.0,
                 benchmark_return=0.0,
                 excess_return=0.0,
                 sharpe_ratio=0.0,
@@ -146,15 +184,38 @@ class StrategyBacktester:
         bars_per_year = 8760.0 / max(1, horizon)
         annualization_factor = np.sqrt(bars_per_year)
 
-        # Execution cost per round-trip/rebalance
+        # Execution cost per order side
         unit_cost = self.fee_rate + self.slippage_rate
-        trade_threshold = threshold if threshold is not None else unit_cost
 
-        # Determine target position: +1 (Long), 0 (Cash), -1 (Short if allowed)
+        # Total expected round-trip friction to justify opening a new position
+        round_trip_cost = 2.0 * unit_cost
+        entry_threshold = threshold if threshold is not None else round_trip_cost
+        exit_threshold = 0.0
+
+        # State-machine position determination avoiding whipsaw churning
         positions = np.zeros(n, dtype=np.float64)
-        positions[r_pred > trade_threshold] = 1.0
-        if self.allow_short:
-            positions[r_pred < -trade_threshold] = -1.0
+        curr_pos = 0.0
+
+        for t in range(n):
+            p_val = r_pred[t]
+            if curr_pos == 0.0:
+                if p_val > entry_threshold:
+                    curr_pos = 1.0
+                elif self.allow_short and p_val < -entry_threshold:
+                    curr_pos = -1.0
+            elif curr_pos == 1.0:
+                # Already long: exit to cash if expected return drops below exit threshold
+                if self.allow_short and p_val < -entry_threshold:
+                    curr_pos = -1.0  # Reverse
+                elif p_val <= exit_threshold:
+                    curr_pos = 0.0  # Exit to cash
+            elif curr_pos == -1.0:
+                # Already short: exit to cash if expected return rises above exit threshold
+                if p_val > entry_threshold:
+                    curr_pos = 1.0  # Reverse
+                elif p_val >= -exit_threshold:
+                    curr_pos = 0.0  # Exit to cash
+            positions[t] = curr_pos
 
         # Calculate position changes (turnover)
         pos_prev = np.concatenate([[0.0], positions[:-1]])
@@ -163,19 +224,26 @@ class StrategyBacktester:
 
         # Friction transaction costs
         friction = trade_turnover * unit_cost
+        total_friction_sum = float(np.sum(friction))
 
-        # Strategy net return per period
-        net_returns = (positions * r_true) - friction
+        # Strategy returns per period
+        gross_returns = positions * r_true
+        net_returns = gross_returns - friction
 
         # Account for closing any active position back to cash at the end of the simulation
         if positions[-1] != 0.0:
             final_exit_friction = np.abs(positions[-1]) * unit_cost
             net_returns[-1] -= final_exit_friction
+            total_friction_sum += final_exit_friction
             total_trades += 1
 
         # Cumulative wealth curve starting strictly from initial capital = 1.0
         equity_curve = np.concatenate([[1.0], np.cumprod(np.maximum(0.0, 1.0 + net_returns))])
         cum_ret = float(equity_curve[-1] - 1.0) if len(equity_curve) > 0 else 0.0
+
+        # Gross wealth curve (before fees & slippage)
+        gross_equity = np.concatenate([[1.0], np.cumprod(np.maximum(0.0, 1.0 + gross_returns))])
+        gross_cum_ret = float(gross_equity[-1] - 1.0) if len(gross_equity) > 0 else 0.0
 
         # Benchmark (Buy and Hold) starting strictly from initial capital = 1.0
         benchmark_curve = np.concatenate([[1.0], np.cumprod(np.maximum(0.0, 1.0 + r_true))])
@@ -223,6 +291,8 @@ class StrategyBacktester:
             total_trades=total_trades,
             win_rate=win_rate,
             cumulative_return=cum_ret,
+            gross_cumulative_return=gross_cum_ret,
+            total_transaction_costs=total_friction_sum,
             benchmark_return=bench_ret,
             excess_return=excess_ret,
             sharpe_ratio=sharpe,

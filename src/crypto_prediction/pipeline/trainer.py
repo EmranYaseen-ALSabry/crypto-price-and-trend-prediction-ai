@@ -97,9 +97,20 @@ class PipelineTrainer:
         except Exception as e:
             logger.warning(f"Could not initialize CatBoost: {e}")
 
-        # LSTM (PyTorch or fallback)
+        # LSTM (PyTorch or explicit fallback)
+        allow_fallback = self.config.get("allow_mlp_fallback", False)
         try:
-            models["LSTM"] = LSTMModel(sequence_length=12, hidden_dim=32, epochs=15, random_state=self.seed)
+            lstm_model = LSTMModel(
+                sequence_length=12,
+                hidden_dim=32,
+                epochs=15,
+                allow_mlp_fallback=allow_fallback,
+                random_state=self.seed,
+            )
+            key_name = "LSTM" if getattr(lstm_model, "is_genuine_lstm", False) else "MLP_Fallback"
+            models[key_name] = lstm_model
+        except ImportError as e:
+            logger.info(f"LSTM not instantiated: {e}")
         except Exception as e:
             logger.warning(f"Could not initialize LSTM: {e}")
 
@@ -206,12 +217,33 @@ class PipelineTrainer:
             # Fit strictly on training partition
             model.fit(splits.X_train, splits.y_train)
 
-            # Save model artifact
-            model.save(self.models_dir / f"{symbol}_{name}_h{horizon}.joblib")
+            # Save model artifact using documented naming convention: {symbol}_{interval}_{name}_h{horizon}.joblib
+            artifact_stem = f"{symbol}_{interval}_{name}_h{horizon}"
+            model_path = self.models_dir / f"{artifact_stem}.joblib"
+            model.save(model_path)
+
+            # Save metadata sidecar
+            meta_path = self.models_dir / f"{artifact_stem}_meta.json"
+            model_meta = {
+                "model_name": name,
+                "model_class": model.__class__.__name__,
+                "symbol": symbol,
+                "interval": interval,
+                "horizon": horizon,
+                "feature_names": list(splits.X_train.columns),
+                "feature_count": len(splits.X_train.columns),
+                "is_genuine_lstm": getattr(model, "is_genuine_lstm", False) if ("LSTM" in name or "MLP" in name) else None,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            try:
+                with open(meta_path, "w", encoding="utf-8") as mf:
+                    json.dump(model_meta, mf, indent=2)
+            except Exception as e:
+                logger.warning(f"Failed to save sidecar metadata for {name}: {e}")
 
             # Out-of-sample predictions
             preds_train = model.predict(splits.X_train)
-            if name == "LSTM":
+            if getattr(model, "is_genuine_lstm", False):
                 preds_val = model.predict(splits.X_val, warmup_history=val_warmup)
                 preds_test = model.predict(splits.X_test, warmup_history=test_warmup)
             else:

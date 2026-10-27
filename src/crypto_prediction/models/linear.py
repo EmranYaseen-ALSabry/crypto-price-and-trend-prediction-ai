@@ -24,10 +24,18 @@ class LinearRegressionModel(BaseModel):
             ]
         )
 
-    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> LinearRegressionModel:
+    def fit(
+        self,
+        X: np.ndarray | pd.DataFrame,
+        y: np.ndarray | pd.Series,
+        sample_weight: np.ndarray | pd.Series | None = None,
+    ) -> LinearRegressionModel:
         if isinstance(X, pd.DataFrame):
             self.feature_names = list(X.columns)
-        self.pipeline.fit(X, y)
+        fit_params = {}
+        if sample_weight is not None:
+            fit_params["regressor__sample_weight"] = np.asarray(sample_weight, dtype=np.float64)
+        self.pipeline.fit(X, y, **fit_params)
         self.is_fitted = True
         return self
 
@@ -53,10 +61,18 @@ class RidgeModel(BaseModel):
             ]
         )
 
-    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> RidgeModel:
+    def fit(
+        self,
+        X: np.ndarray | pd.DataFrame,
+        y: np.ndarray | pd.Series,
+        sample_weight: np.ndarray | pd.Series | None = None,
+    ) -> RidgeModel:
         if isinstance(X, pd.DataFrame):
             self.feature_names = list(X.columns)
-        self.pipeline.fit(X, y)
+        fit_params = {}
+        if sample_weight is not None:
+            fit_params["regressor__sample_weight"] = np.asarray(sample_weight, dtype=np.float64)
+        self.pipeline.fit(X, y, **fit_params)
         self.is_fitted = True
         return self
 

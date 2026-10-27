@@ -1,0 +1,26 @@
+{
+  "total_evaluations": 216,
+  "target_assets": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT"
+  ],
+  "transfer_modes": [
+    "zero_shot_raw",
+    "zero_shot_vol_adapted",
+    "few_shot_vol_adapted",
+    "asset_specific_baseline"
+  ],
+  "models": [
+    "ZeroReturn",
+    "MeanReturn",
+    "Ridge",
+    "LightGBM",
+    "CatBoost",
+    "XGBoost"
+  ],
+  "n_folds": 3,
+  "few_shot_bars": 1000,
+  "sha256": "156c77621b8d65beeecbaa2810107ff6d6b6c88798160234c11cb78cbf73fa4a",
+  "generated_at_utc": "2026-10-27 19:55:57.154203+00:00"
+}

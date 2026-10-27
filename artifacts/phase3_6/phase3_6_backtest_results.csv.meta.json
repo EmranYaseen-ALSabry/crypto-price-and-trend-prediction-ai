@@ -1,0 +1,33 @@
+{
+  "total_simulations": 1368,
+  "approaches": [
+    "Approach_A_Single",
+    "Approach_D_MultiCross",
+    "LOAO_ZeroShot"
+  ],
+  "models": [
+    "CatBoost",
+    "LightGBM",
+    "Ridge",
+    "XGBoost"
+  ],
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT"
+  ],
+  "n_folds": 3,
+  "cost_scenarios": [
+    "zero_cost",
+    "institutional",
+    "retail_standard",
+    "high_friction"
+  ],
+  "policies": [
+    "threshold_filter",
+    "pure_sign",
+    "high_conviction"
+  ],
+  "sha256": "16c6a2bbc84ac9071105eb7666e4a8994f4175b4faaa176ac81992075b5d8818",
+  "generated_at_utc": "2026-10-27 20:55:51.223058+00:00"
+}

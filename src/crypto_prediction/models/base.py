@@ -18,8 +18,13 @@ class BaseModel(ABC):
         self.feature_names: list[str] = []
 
     @abstractmethod
-    def fit(self, X: np.ndarray | pd.DataFrame, y: np.ndarray | pd.Series) -> BaseModel:
-        """Trains the estimator on input features X and target y."""
+    def fit(
+        self,
+        X: np.ndarray | pd.DataFrame,
+        y: np.ndarray | pd.Series,
+        sample_weight: np.ndarray | pd.Series | None = None,
+    ) -> BaseModel:
+        """Trains the estimator on input features X and target y with optional sample weights."""
         pass
 
     @abstractmethod

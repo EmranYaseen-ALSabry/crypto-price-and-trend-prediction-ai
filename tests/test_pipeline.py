@@ -232,3 +232,79 @@ class TestPipelineIntegration:
         assert np.isfinite(res.cumulative_return)
         assert np.isfinite(res.sharpe_ratio)
         assert np.isfinite(res.max_drawdown)
+
+    def test_backtest_friction_lifecycle_and_gross_net_separation(self) -> None:
+        """Verifies full friction lifecycle: open, hold (zero cost), reverse, final close."""
+        from crypto_prediction.pipeline.backtester import StrategyBacktester
+
+        fee = 0.0010
+        slippage = 0.0005
+        unit_cost = fee + slippage  # 0.0015 per order/side
+        backtester = StrategyBacktester(fee_rate=fee, slippage_rate=slippage, allow_short=True)
+
+        # Bar 0: Enter Long (delta=1 -> cost 0.0015, gross return 0.02)
+        # Bar 1: Hold Long (delta=0 -> cost 0.0000, gross return 0.01)
+        # Bar 2: Reverse to Short (delta=2 -> cost 0.0030, gross return -1 * -0.01 = +0.01)
+        # Final liquidation at end of backtest (delta=1 -> cost 0.0015, gross return 0.0)
+        y_true = np.array([0.02, 0.01, -0.01])
+        y_pred = np.array([0.05, 0.05, -0.05])
+
+        res = backtester.run_backtest(y_true, y_pred, model_name="LifecycleTest")
+
+        # Total turnover: 1 (open) + 0 (hold) + 2 (reverse) + 1 (final close) = 4 units
+        # Total transaction costs = 4 * 0.0015 = 0.0060 (0.60%)
+        expected_total_cost = 4 * unit_cost
+        assert np.isclose(res.total_transaction_costs, expected_total_cost, atol=1e-6)
+
+        # Gross cumulative return: (1 + 0.02) * (1 + 0.01) * (1 + 0.01) - 1.0 = 0.040602
+        expected_gross = (1.0 + 0.02) * (1.0 + 0.01) * (1.0 + 0.01) - 1.0
+        assert np.isclose(res.gross_cumulative_return, expected_gross, atol=1e-5)
+
+        # Net return must be strictly less than gross return by friction
+        assert res.cumulative_return < res.gross_cumulative_return
+
+        # Separate reporting fields present in summary and dict
+        summary = res.summary()
+        assert "Strategy Gross Return" in summary
+        assert "Strategy Net Return" in summary
+        assert "Total Transaction Costs" in summary
+
+        res_dict = res.to_dict()
+        assert "gross_cumulative_return" in res_dict
+        assert "total_transaction_costs" in res_dict
+
+    def test_artifact_naming_convention_and_schema_validation(self, tmp_path: Path) -> None:
+        """Verifies documented naming convention {symbol}_{interval}_{name}_h{horizon}.joblib
+
+        and schema mismatch rejection.
+        """
+        from crypto_prediction.models.linear import RidgeModel
+
+        symbol = "BTCUSDT"
+        interval = "1h"
+        horizon = 1
+        name = "Ridge"
+
+        # Fit model on 3 features
+        X_train = pd.DataFrame({"f1": [1.0, 2.0, 3.0], "f2": [0.1, 0.2, 0.3], "f3": [-1.0, -2.0, -3.0]})
+        y_train = pd.Series([0.01, -0.02, 0.03])
+        model = RidgeModel(alpha=1.0)
+        model.fit(X_train, y_train)
+
+        # Save using documented naming convention
+        artifact_name = f"{symbol}_{interval}_{name}_h{horizon}.joblib"
+        artifact_path = tmp_path / artifact_name
+        model.save(artifact_path)
+        assert artifact_path.exists()
+
+        # Load back
+        loaded = RidgeModel.load(artifact_path)
+        assert loaded.feature_names == ["f1", "f2", "f3"]
+
+        # Inference on compatible schema works
+        preds = loaded.predict(X_train)
+        assert len(preds) == 3
+
+        # Inference on incompatible schema (missing f3 or different columns)
+        X_incompatible = pd.DataFrame({"f1": [1.0, 2.0], "f2": [0.1, 0.2]})
+        assert loaded.feature_names != list(X_incompatible.columns)
